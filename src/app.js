@@ -1,0 +1,30 @@
+require('dotenv').config();
+const express = require('express');
+const cors = require('cors');
+const db = require('./models');
+
+const authRoutes = require('./routes/auth');
+const guestRoutes = require('./routes/guestRoutes');
+const adminRoutes = require('./routes/adminRoutes');
+
+const app = express();
+app.use(cors());
+app.use(express.json());
+
+// User authentication routes
+app.use('/api/auth', authRoutes);
+
+// Guest routes (products, categories, settings - read-only)
+app.use('/api', guestRoutes);
+
+// Admin routes (login, protected operations)
+app.use('/api/admin', adminRoutes);
+
+app.get('/', (req, res) => res.json({ msg: 'M2G Ecom API' }));
+
+app.use((err, req, res, next) => {
+  console.error(err);
+  res.status(500).json({ error: err.message });
+});
+
+module.exports = app;

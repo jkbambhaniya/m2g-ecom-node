@@ -13,9 +13,17 @@ function generateSlug(name) {
 async function list(req, res) {
     try {
         const categories = await db.Category.findAll({
-            attributes: ['id', 'name', 'slug', 'description', 'image'],
+            attributes: ['id', 'name', 'parent_id', 'slug', 'description', 'image'],
+            include: [
+                {
+                    model: db.Category,
+                    as: 'parent',
+                    attributes: ['id', 'name']
+                }
+            ],
             order: [['name', 'ASC']]
         });
+
         res.json(categories);
     } catch (error) {
         console.error(error);
@@ -23,9 +31,11 @@ async function list(req, res) {
     }
 }
 
+
 async function create(req, res) {
     try {
-        const { name, description, image } = req.body;
+        const { name, parent_id, description } = req.body;
+        const image = req.file ? `/uploads/categories/${req.file.filename}` : null;
 
         if (!name) {
             return res.status(400).json({ error: 'Category name is required' });
@@ -41,9 +51,10 @@ async function create(req, res) {
 
         const category = await db.Category.create({
             name,
+            parent_id: parent_id || null,
             slug,
             description: description || null,
-            image: image || null
+            image
         });
 
         res.status(201).json(category);
@@ -59,7 +70,7 @@ async function create(req, res) {
 async function update(req, res) {
     try {
         const { id } = req.params;
-        const { name, description, image } = req.body;
+        const { name, parent_id, description, image } = req.body;
 
         const category = await db.Category.findByPk(id);
         if (!category) {
@@ -72,7 +83,13 @@ async function update(req, res) {
             updateData.slug = generateSlug(name);
         }
         if (description !== undefined) updateData.description = description;
-        if (image !== undefined) updateData.image = image;
+        if (req.file) {
+            updateData.image = `/uploads/categories/${req.file.filename}`;
+        } else if (req.body.image === null) {
+            updateData.image = null;
+        }
+
+        if (parent_id !== undefined) updateData.parent_id = parent_id || null;
 
         await category.update(updateData);
         res.json(category);

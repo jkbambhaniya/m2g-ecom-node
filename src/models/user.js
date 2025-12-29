@@ -18,8 +18,19 @@ module.exports = (sequelize, DataTypes) => {
     }
   });
 
-  User.prototype.comparePassword = function(plain) {
+  User.prototype.comparePassword = function (plain) {
     return bcrypt.compare(plain, this.password);
+  };
+
+  User.associate = (models) => {
+    User.hasMany(models.Order, {
+      foreignKey: 'userId',
+      as: 'orders'
+    });
+    User.hasMany(models.CartItem, {
+      foreignKey: 'userId',
+      as: 'cartItems'
+    });
   };
 
   return User;

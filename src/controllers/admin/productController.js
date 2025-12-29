@@ -52,10 +52,12 @@ async function list(req, res) {
 // Create product (admin)
 async function create(req, res) {
 	try {
-		const { title, description, shortDescription, price, discountPrice, stock, sku, categoryId, weight, dimensions, tags, isFeatured, images, image } = req.body;
+		const { title, description, shortDescription, price, discountPrice, stock, sku, categoryId, weight, dimensions, tags, isFeatured, images } = req.body;
+
+		const image = req.file ? `/uploads/products/${req.file.filename}` : null;
 
 		// Validate category exists when provided to avoid FK constraint errors
-		if (categoryId !== undefined && categoryId !== null) {
+		if (categoryId !== undefined && categoryId !== null && categoryId !== '') {
 			const category = await db.Category.findByPk(categoryId);
 			if (!category) {
 				return res.status(400).json({
@@ -78,6 +80,16 @@ async function create(req, res) {
 
 		const slug = slugify(title, { lower: true, strict: true });
 
+		// Handle FormData types (strings) for tags/dimensions if needed
+		let parsedTags = tags;
+		if (typeof tags === 'string') {
+			try { parsedTags = JSON.parse(tags); } catch (e) { parsedTags = []; }
+		}
+		let parsedDimensions = dimensions;
+		if (typeof dimensions === 'string') {
+			try { parsedDimensions = JSON.parse(dimensions); } catch (e) { parsedDimensions = null; }
+		}
+
 		const product = await db.Product.create({
 			title,
 			description,
@@ -86,12 +98,12 @@ async function create(req, res) {
 			discountPrice,
 			stock,
 			sku: sku || slug,
-			categoryId,
+			categoryId: categoryId === '' ? null : categoryId,
 			weight,
-			dimensions,
-			tags: Array.isArray(tags) ? tags : [],
-			isFeatured: isFeatured || false,
-			image: image || (Array.isArray(images) && images[0]) || null,
+			dimensions: parsedDimensions,
+			tags: Array.isArray(parsedTags) ? parsedTags : [],
+			isFeatured: isFeatured === 'true' || isFeatured === true,
+			image,
 			images: Array.isArray(images) ? images : [],
 			slug,
 			isActive: true
@@ -132,7 +144,7 @@ async function update(req, res) {
 			return res.status(404).json({ error: 'Product not found' });
 		}
 
-		const { title, sku } = req.body;
+		const { title, sku, tags, dimensions } = req.body;
 
 		// Check if new SKU already exists
 		if (sku && sku !== product.sku) {
@@ -147,10 +159,22 @@ async function update(req, res) {
 			req.body.slug = slugify(title, { lower: true, strict: true });
 		}
 
+		// Handle FormData types (strings) for tags/dimensions if needed
+		if (tags && typeof tags === 'string') {
+			try { req.body.tags = JSON.parse(tags); } catch (e) { }
+		}
+		if (dimensions && typeof dimensions === 'string') {
+			try { req.body.dimensions = JSON.parse(dimensions); } catch (e) { }
+		}
+
+		if (req.file) {
+			req.body.image = `/uploads/products/${req.file.filename}`;
+		}
+
 		// If categoryId is present in the update payload, ensure it exists
-		if (req.body.hasOwnProperty('categoryId')) {
+		if ('categoryId' in req.body) {
 			const newCatId = req.body.categoryId;
-			if (newCatId !== undefined && newCatId !== null) {
+			if (newCatId !== undefined && newCatId !== null && newCatId !== '') {
 				const category = await db.Category.findByPk(newCatId);
 				if (!category) {
 					return res.status(400).json({ errors: [{ location: 'body', msg: 'Category not found', path: 'categoryId', value: newCatId }] });

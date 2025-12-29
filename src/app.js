@@ -10,6 +10,8 @@ const adminRoutes = require('./routes/adminRoutes');
 const app = express();
 app.use(cors());
 app.use(express.json());
+app.use('/public', express.static('public'));
+app.use('/uploads', express.static('public/uploads'));
 
 // User authentication routes
 app.use('/api/auth', authRoutes);

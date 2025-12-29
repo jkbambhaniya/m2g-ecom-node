@@ -1,5 +1,5 @@
 module.exports = (sequelize, DataTypes) => {
-  return sequelize.define('Product', {
+  const Product = sequelize.define('Product', {
     id: { type: DataTypes.INTEGER.UNSIGNED, autoIncrement: true, primaryKey: true },
     title: { type: DataTypes.STRING(255), allowNull: false },
     slug: { type: DataTypes.STRING(255), allowNull: false, unique: true },
@@ -18,6 +18,7 @@ module.exports = (sequelize, DataTypes) => {
     weight: { type: DataTypes.DECIMAL(8, 2) },
     dimensions: { type: DataTypes.JSON },
     tags: { type: DataTypes.JSON, defaultValue: [] },
+    categoryId: { type: DataTypes.INTEGER.UNSIGNED, allowNull: true },
     createdAt: { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
     updatedAt: { type: DataTypes.DATE, defaultValue: DataTypes.NOW }
   }, {
@@ -29,4 +30,15 @@ module.exports = (sequelize, DataTypes) => {
       { fields: ['isFeatured'] }
     ]
   });
+
+  Product.associate = (models) => {
+    Product.belongsTo(models.Category, {
+      foreignKey: 'categoryId'
+    });
+    Product.hasMany(models.OrderItem, {
+      foreignKey: 'productId'
+    });
+  };
+
+  return Product;
 };

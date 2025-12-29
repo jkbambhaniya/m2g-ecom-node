@@ -1,5 +1,4 @@
-const db = require('../models');
-const Settings = db.Settings;
+const { Settings } = require('../models');
 
 exports.getPublicSettings = async (req, res) => {
 	try {

@@ -4,7 +4,7 @@ const { sign } = require('../utils/jwt');
 async function register(req, res) {
 	const { name, email, password } = req.body;
 	try {
-		const user = await db.User.create({ name, email, password, roleId: 2 });
+		const user = await db.User.create({ name, email, password });
 		const token = sign({ id: user.id, email: user.email });
 		res.json({ user: { id: user.id, name: user.name, email: user.email }, token });
 	} catch (err) {
@@ -14,12 +14,12 @@ async function register(req, res) {
 
 async function login(req, res) {
 	const { email, password } = req.body;
-	const user = await db.User.findOne({ where: { email }, include: db.Role });
+	const user = await db.User.findOne({ where: { email } });
 	if (!user) return res.status(400).json({ message: 'Invalid credentials' });
 	const ok = await user.comparePassword(password);
 	if (!ok) return res.status(400).json({ message: 'Invalid credentials' });
 	const token = sign({ id: user.id, email: user.email });
-	res.json({ user: { id: user.id, name: user.name, email: user.email, role: user.Role?.name }, token });
+	res.json({ user: { id: user.id, name: user.name, email: user.email }, token });
 }
 
 async function logout(req, res) {
@@ -31,8 +31,7 @@ async function logout(req, res) {
 async function getProfile(req, res) {
 	try {
 		const user = await db.User.findByPk(req.user.id, {
-			attributes: ['id', 'name', 'email', 'createdAt'],
-			include: [{ model: db.Role, attributes: ['name'] }]
+			attributes: ['id', 'name', 'email', 'createdAt']
 		});
 		if (!user) return res.status(404).json({ message: 'User not found' });
 		res.json(user);

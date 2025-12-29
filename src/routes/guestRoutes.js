@@ -2,6 +2,7 @@ const router = require('express').Router();
 const productCtrl = require('../controllers/productController');
 const categoryCtrl = require('../controllers/categoryController');
 const { getPublicSettings } = require('../controllers/settingsController');
+const heroCtrl = require('../controllers/admin/heroController');
 
 // ============================================
 // PUBLIC ROUTES (No Authentication Required)
@@ -20,5 +21,8 @@ router.get('/categories', categoryCtrl.list);
 
 // Settings
 router.get('/settings', getPublicSettings);
+
+// Hero
+router.get('/hero/active', heroCtrl.getActiveSlides);
 
 module.exports = router;

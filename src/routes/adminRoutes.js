@@ -7,6 +7,7 @@ const userCtrl = require('../controllers/admin/userController');
 const orderCtrl = require('../controllers/admin/orderController');
 const heroCtrl = require('../controllers/admin/heroController');
 const { updateSettings, getPublicSettings } = require('../controllers/admin/settingsController');
+const paymentCtrl = require('../controllers/paymentController');
 const { productValidationRules, validate } = require('../utils/validators');
 const upload = require('../utils/upload');
 
@@ -52,6 +53,9 @@ router.get('/users/:id', authenticateAdmin, userCtrl.get);
 router.get('/orders', authenticateAdmin, orderCtrl.list);
 router.get('/orders/:id', authenticateAdmin, orderCtrl.get);
 router.patch('/orders/:id/status', authenticateAdmin, orderCtrl.updateStatus);
+
+// Transactions
+router.get('/transactions', authenticateAdmin, paymentCtrl.getAllTransactions);
 
 // Dashboard
 router.get('/dashboard', authenticateAdmin, (req, res) => {

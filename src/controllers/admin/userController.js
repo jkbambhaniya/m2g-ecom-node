@@ -59,6 +59,11 @@ async function get(req, res) {
                     model: db.CartItem,
                     as: 'cartItems',
                     include: [{ model: db.Product, attributes: ['id', 'title', 'image', 'price'] }]
+                },
+                {
+                    model: db.WishlistItem,
+                    as: 'wishlistItems',
+                    include: [{ model: db.Product, attributes: ['id', 'title', 'image', 'price'] }]
                 }
             ],
             order: [

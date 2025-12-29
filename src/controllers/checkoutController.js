@@ -9,7 +9,11 @@ async function checkout(req, res) {
             paymentStatus,
             transactionId,
             billingAddress,
-            shippingAddress
+            shippingAddress,
+            razorpayOrderId,
+            razorpayPaymentId,
+            razorpaySignature,
+            razorpayResponse
         } = req.body;
         const userId = req.user.id;
 
@@ -49,10 +53,13 @@ async function checkout(req, res) {
         const order = await db.Order.create({
             userId,
             total: totalAmount,
-            status: 'pending',
+            status: paymentStatus === 'completed' ? 'processing' : 'pending',
             paymentMethod: paymentMethod || 'COD',
             paymentStatus: paymentStatus || 'pending',
             transactionId: transactionId || null,
+            razorpayOrderId: razorpayOrderId || null,
+            razorpayPaymentId: razorpayPaymentId || null,
+            razorpaySignature: razorpaySignature || null,
             billingAddress: billingAddress ? JSON.stringify(billingAddress) : null,
             shippingAddress: shippingAddress ? JSON.stringify(shippingAddress) : null
         }, { transaction });
@@ -63,7 +70,8 @@ async function checkout(req, res) {
             amount: totalAmount,
             paymentMethod: paymentMethod || 'COD',
             status: paymentStatus || 'pending',
-            transactionId: transactionId || null
+            transactionId: transactionId || null,
+            gatewayResponse: razorpayResponse || null
         }, { transaction });
 
         // Create Order Items

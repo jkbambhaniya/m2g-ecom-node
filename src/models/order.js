@@ -8,7 +8,10 @@ module.exports = (sequelize, DataTypes) => {
     transactionId: { type: DataTypes.STRING, allowNull: true },
     billingAddress: { type: DataTypes.TEXT, allowNull: true }, // Store as JSON string
     shippingAddress: { type: DataTypes.TEXT, allowNull: true }, // Store as JSON string
-    userId: { type: DataTypes.INTEGER.UNSIGNED, allowNull: true }
+    userId: { type: DataTypes.INTEGER.UNSIGNED, allowNull: true },
+    razorpayOrderId: { type: DataTypes.STRING, allowNull: true },
+    razorpayPaymentId: { type: DataTypes.STRING, allowNull: true },
+    razorpaySignature: { type: DataTypes.STRING, allowNull: true }
   }, { tableName: 'orders' });
 
   Order.associate = (models) => {

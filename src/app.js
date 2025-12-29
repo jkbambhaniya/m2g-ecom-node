@@ -19,6 +19,9 @@ app.use('/api/auth', authRoutes);
 // Guest routes (products, categories, settings - read-only)
 app.use('/api', guestRoutes);
 
+const paymentRoutes = require('./routes/paymentRoutes');
+app.use('/api/payments', paymentRoutes);
+
 // Admin routes (login, protected operations)
 app.use('/api/admin', adminRoutes);
 

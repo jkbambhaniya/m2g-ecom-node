@@ -21,7 +21,7 @@ module.exports = (sequelize, DataTypes) => {
             type: DataTypes.STRING,
             allowNull: true
         },
-        order: {
+        position: {
             type: DataTypes.INTEGER,
             defaultValue: 0
         },

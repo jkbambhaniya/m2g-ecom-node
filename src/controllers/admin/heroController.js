@@ -4,7 +4,7 @@ const db = require('../../models');
 async function list(req, res) {
     try {
         const heroes = await db.Hero.findAll({
-            order: [['order', 'ASC'], ['createdAt', 'DESC']]
+            order: [['position', 'ASC'], ['createdAt', 'DESC']]
         });
         res.json(heroes);
     } catch (error) {
@@ -27,7 +27,7 @@ async function create(req, res) {
             subtitle,
             image,
             link,
-            order: order || 0,
+            position: order || 0,
             isActive: isActive === 'false' ? false : true
         });
 
@@ -50,7 +50,7 @@ async function update(req, res) {
         if (title) hero.title = title;
         if (subtitle !== undefined) hero.subtitle = subtitle;
         if (link !== undefined) hero.link = link;
-        if (order !== undefined) hero.order = order;
+        if (order !== undefined) hero.position = order;
         if (isActive !== undefined) hero.isActive = isActive === 'false' ? false : true;
 
         if (req.file) {
@@ -98,7 +98,7 @@ async function getActiveSlides(req, res) {
     try {
         const heroes = await db.Hero.findAll({
             where: { isActive: true },
-            order: [['order', 'ASC'], ['createdAt', 'DESC']]
+            order: [['position', 'ASC'], ['createdAt', 'DESC']]
         });
         res.json(heroes);
     } catch (error) {

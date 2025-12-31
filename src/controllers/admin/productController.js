@@ -1,6 +1,7 @@
 const db = require('../../models');
 const slugify = require('slugify');
 const { Op } = require('sequelize');
+const fs = require('fs');
 
 // Get all products with filters
 async function list(req, res) {
@@ -8,7 +9,7 @@ async function list(req, res) {
 		const { categoryId, search, sort, limit = 12, page = 1, featured } = req.query;
 		const offset = (page - 1) * limit;
 
-		const where = { isActive: true };
+		const where = {};
 
 		if (categoryId) where.categoryId = categoryId;
 		if (featured === 'true') where.isFeatured = true;
@@ -28,7 +29,11 @@ async function list(req, res) {
 
 		const { count, rows } = await db.Product.findAndCountAll({
 			where,
-			include: [{ model: db.Category, attributes: ['id', 'name', 'slug'] }],
+			include: [
+				{ model: db.Category, attributes: ['id', 'name', 'slug'] },
+				{ model: db.ProductVariant, as: 'variants', attributes: ['id', 'name', 'price', 'stock', 'sku', 'image'] },
+				{ model: db.Merchant, as: 'merchant', attributes: ['id', 'name', 'shopName', 'email', 'image'] }
+			],
 			order,
 			limit: parseInt(limit),
 			offset: parseInt(offset),
@@ -49,12 +54,117 @@ async function list(req, res) {
 		res.status(500).json({ error: error.message });
 	}
 }
+// Get single product
+async function get(req, res) {
+	try {
+		const product = await db.Product.findByPk(req.params.id, {
+			include: [
+				{ model: db.Category, attributes: ['id', 'name', 'slug'] },
+				{ model: db.ProductVariant, as: 'variants' },
+				{ model: db.Merchant, as: 'merchant', attributes: ['id', 'name', 'shopName', 'email', 'image'] }
+			]
+		});
+
+		if (!product) {
+			return res.status(404).json({ error: 'Product not found' });
+		}
+
+		res.json(product);
+	} catch (error) {
+		console.error(error);
+		res.status(500).json({ error: error.message });
+	}
+}
+
+// Get product by slug
+async function getBySlug(req, res) {
+	try {
+		const product = await db.Product.findOne({
+			where: { slug: req.params.slug },
+			include: [
+				{ model: db.Category, attributes: ['id', 'name', 'slug'] },
+				{ model: db.ProductVariant, as: 'variants' },
+				{ model: db.Merchant, as: 'merchant', attributes: ['id', 'name', 'shopName', 'email', 'image'] }
+			]
+		});
+
+		if (!product) {
+			return res.status(404).json({ error: 'Product not found' });
+		}
+
+		res.json(product);
+	} catch (error) {
+		console.error(error);
+		res.status(500).json({ error: error.message });
+	}
+}
+
+// Get featured products
+async function getFeatured(req, res) {
+	try {
+		const limit = parseInt(req.query.limit) || 8;
+		const products = await db.Product.findAll({
+			where: { isFeatured: true, isActive: true },
+			include: [{ model: db.Category, attributes: ['id', 'name', 'slug'] }],
+			limit,
+			order: [['rating', 'DESC']]
+		});
+
+		res.json(products);
+	} catch (error) {
+		console.error(error);
+		res.status(500).json({ error: error.message });
+	}
+}
+
+// Helper to extract variants from flat keys
+function extractVariants(body) {
+	const variantsMap = {};
+
+	// Start with existing variants array if any (populated by file upload logic)
+	if (body.variants && Array.isArray(body.variants)) {
+		body.variants.forEach((v, i) => {
+			if (v) variantsMap[i] = { ...v };
+		});
+	}
+
+	Object.keys(body).forEach(key => {
+		const match = key.match(/^variants\[(\d+)\]\[(\w+)\]$/);
+		if (match) {
+			const index = parseInt(match[1]);
+			const field = match[2];
+			if (!variantsMap[index]) variantsMap[index] = {};
+			variantsMap[index][field] = body[key];
+		}
+	});
+
+	return Object.values(variantsMap);
+}
+
 // Create product (admin)
 async function create(req, res) {
 	try {
-		const { title, description, shortDescription, price, discountPrice, stock, sku, categoryId, weight, dimensions, tags, isFeatured, images } = req.body;
+		// Extract variants from flat keys if necessary
+		if (!Array.isArray(req.body.variants)) {
+			req.body.variants = extractVariants(req.body);
+		}
 
-		const image = req.file ? `/uploads/products/${req.file.filename}` : null;
+		const { title, description, shortDescription, price, discountPrice, stock, sku, categoryId, weight, dimensions, tags, isFeatured, images, variants } = req.body;
+
+		// Handle uploaded files (req.files is an object with upload.fields)
+		const uploadedFilesMap = req.files || {};
+		const uploadedFiles = Object.values(uploadedFilesMap).flat();
+
+		const uploadedImagePaths = (uploadedFilesMap['image'] || [])
+			.map(file => `/uploads/products/temp/${file.filename}`);
+
+		// Combine uploaded images with any images from body (URLs)
+		let allImages = uploadedImagePaths;
+		if (images && Array.isArray(images)) {
+			allImages = [...uploadedImagePaths, ...images];
+		}
+
+		const image = allImages.length > 0 ? allImages[0] : null;
 
 		// Validate category exists when provided to avoid FK constraint errors
 		if (categoryId !== undefined && categoryId !== null && categoryId !== '') {
@@ -90,6 +200,31 @@ async function create(req, res) {
 			try { parsedDimensions = JSON.parse(dimensions); } catch (e) { parsedDimensions = null; }
 		}
 
+		// Handle variants from FormData
+		let parsedVariants = [];
+		if (variants) {
+			if (typeof variants === 'string') {
+				try { parsedVariants = JSON.parse(variants); } catch (e) { parsedVariants = []; }
+			} else if (Array.isArray(variants)) {
+				parsedVariants = variants;
+			}
+		}
+
+		// Validate variant SKUs don't conflict with existing products
+		if (parsedVariants.length > 0) {
+			for (const variant of parsedVariants) {
+				if (variant.sku) {
+					const existingVariant = await db.ProductVariant.findOne({ where: { sku: variant.sku } });
+					if (existingVariant) {
+						return res.status(400).json({
+							error: 'Variant SKU already exists',
+							errors: [{ path: 'variants', msg: `Variant SKU '${variant.sku}' already exists`, value: variant.sku }]
+						});
+					}
+				}
+			}
+		}
+
 		const product = await db.Product.create({
 			title,
 			description,
@@ -104,14 +239,108 @@ async function create(req, res) {
 			tags: Array.isArray(parsedTags) ? parsedTags : [],
 			isFeatured: isFeatured === 'true' || isFeatured === true,
 			image,
-			images: Array.isArray(images) ? images : [],
+			images: allImages,
 			slug,
 			isActive: true
 		});
 
-		res.status(201).json(product);
+		// Handle variant image assignments from uploaded files
+		const variantImageMap = {};
+
+		// Map uploaded variant images
+		uploadedFiles.forEach(file => {
+			if (file.fieldname.startsWith('variants[') && file.fieldname.endsWith('][image]')) {
+				const match = file.fieldname.match(/variants\[(\d+)\]\[image\]/);
+				if (match) {
+					const index = parseInt(match[1]);
+					let imagePath;
+					if (req.method === 'PUT') {
+						// For updates, images are already in correct folder
+						imagePath = `/uploads/products/${product.id}/variants/${file.filename}`;
+					} else {
+						// For creation, move from temp folder
+						const tempPath = file.path;
+						const finalDir = `public/uploads/products/${product.id}/variants`;
+						const finalPath = `${finalDir}/${file.filename}`;
+
+						if (!fs.existsSync(finalDir)) {
+							fs.mkdirSync(finalDir, { recursive: true });
+						}
+
+						fs.renameSync(tempPath, finalPath);
+						imagePath = `/uploads/products/${product.id}/variants/${file.filename}`;
+					}
+					variantImageMap[index] = imagePath;
+				}
+			}
+		});
+
+		// Move main product images from temp to final location
+		const finalProductDir = `public/uploads/products/${product.id}`;
+		if (!fs.existsSync(finalProductDir)) {
+			fs.mkdirSync(finalProductDir, { recursive: true });
+		}
+
+		const finalImagePaths = [];
+		uploadedFiles.forEach(file => {
+			if (file.fieldname === 'image') {
+				const tempPath = file.path;
+				const finalPath = `${finalProductDir}/${file.filename}`;
+
+				try {
+					fs.renameSync(tempPath, finalPath);
+					finalImagePaths.push(`/uploads/products/${product.id}/${file.filename}`);
+				} catch (err) {
+					console.error(`Failed to move image ${file.filename}:`, err);
+					// Keep temp path if move fails
+					finalImagePaths.push(`/uploads/products/temp/${file.filename}`);
+				}
+			}
+		});
+
+		// Update product with final image paths
+		if (finalImagePaths.length > 0) {
+			await product.update({
+				image: finalImagePaths[0],
+				images: finalImagePaths
+			});
+		}
+
+		// Create variants if provided
+		if (parsedVariants.length > 0) {
+			const variantsToCreate = parsedVariants.map((variant, index) => ({
+				productId: product.id,
+				name: variant.name,
+				price: variant.price || 0,
+				stock: variant.stock || 0,
+				sku: variant.sku || null,
+				image: variantImageMap[index] || variant.image || null,
+				attributes: variant.attributes || {}
+			}));
+			await db.ProductVariant.bulkCreate(variantsToCreate);
+		}
+
+		// Fetch product with variants for response
+		const productWithVariants = await db.Product.findByPk(product.id, {
+			include: [{ model: db.ProductVariant, as: 'variants' }]
+		});
+
+		res.status(201).json(productWithVariants);
 	} catch (error) {
 		console.error(error);
+
+		// Cleanup temp images if product creation failed
+		const uploadedFiles = req.files || [];
+		uploadedFiles.forEach(file => {
+			try {
+				if (fs.existsSync(file.path)) {
+					fs.unlinkSync(file.path);
+					console.log(`Cleaned up temp image: ${file.path}`);
+				}
+			} catch (cleanupError) {
+				console.error(`Failed to cleanup temp image ${file.path}:`, cleanupError);
+			}
+		});
 
 		if (error.name === 'SequelizeUniqueConstraintError') {
 			const field = error.errors[0].path;
@@ -138,13 +367,18 @@ async function create(req, res) {
 // Update product (admin)
 async function update(req, res) {
 	try {
+		// Extract variants from flat keys if necessary
+		if (req.body.variants && !Array.isArray(req.body.variants)) {
+			req.body.variants = extractVariants(req.body);
+		}
+
 		const product = await db.Product.findByPk(req.params.id);
 
 		if (!product) {
 			return res.status(404).json({ error: 'Product not found' });
 		}
 
-		const { title, sku, tags, dimensions } = req.body;
+		const { title, sku, tags, dimensions, variants } = req.body;
 
 		// Check if new SKU already exists
 		if (sku && sku !== product.sku) {
@@ -167,9 +401,37 @@ async function update(req, res) {
 			try { req.body.dimensions = JSON.parse(dimensions); } catch (e) { }
 		}
 
-		if (req.file) {
-			req.body.image = `/uploads/products/${req.file.filename}`;
+		// Handle uploaded files for update (req.files is an object with upload.fields)
+		const uploadedFilesMap = req.files || {};
+		const allUploadedFiles = Object.values(uploadedFilesMap).flat();
+
+		if (allUploadedFiles.length > 0) {
+			const uploadedImagePaths = (uploadedFilesMap['image'] || [])
+				.map(file => `/uploads/products/${product.id}/${file.filename}`);
+
+			if (uploadedImagePaths.length > 0) {
+				req.body.image = uploadedImagePaths[0]; // Set main image to first uploaded
+				// For update, we'll replace the images array
+				req.body.images = uploadedImagePaths;
+			}
+		} else {
+			// Preserve existing images if no new images uploaded
+			req.body.image = product.image;
+			req.body.images = product.images;
 		}
+
+		// Handle variant image assignments from uploaded files
+		const variantImageMap = {};
+		allUploadedFiles.forEach(file => {
+			if (file.fieldname.startsWith('variants[') && file.fieldname.endsWith('][image]')) {
+				const match = file.fieldname.match(/variants\[(\d+)\]\[image\]/);
+				if (match) {
+					const index = parseInt(match[1]);
+					// For updates, images are already in correct folder
+					variantImageMap[index] = `/uploads/products/${product.id}/variants/${file.filename}`;
+				}
+			}
+		});
 
 		// If categoryId is present in the update payload, ensure it exists
 		if ('categoryId' in req.body) {
@@ -182,8 +444,85 @@ async function update(req, res) {
 			}
 		}
 
+		// Handle variants from FormData
+		let parsedVariants = [];
+		if (variants) {
+			if (typeof variants === 'string') {
+				try { parsedVariants = JSON.parse(variants); } catch (e) { parsedVariants = []; }
+			} else if (Array.isArray(variants)) {
+				parsedVariants = variants;
+			}
+		}
+
+		// Process variants: create new ones, update existing ones, delete removed ones
+		if (parsedVariants.length > 0 || variants !== undefined) {
+			// Get existing variants
+			const existingVariants = await db.ProductVariant.findAll({
+				where: { productId: product.id }
+			});
+
+			const existingVariantIds = existingVariants.map(v => v.id);
+			const incomingVariantIds = parsedVariants
+				.filter(v => v.id)
+				.map(v => parseInt(v.id));
+
+			// Delete variants that are no longer present
+			const variantsToDelete = existingVariantIds.filter(id => !incomingVariantIds.includes(id));
+			if (variantsToDelete.length > 0) {
+				await db.ProductVariant.destroy({
+					where: { id: { [Op.in]: variantsToDelete } }
+				});
+			}
+
+			// Update existing variants and create new ones
+			for (let i = 0; i < parsedVariants.length; i++) {
+				const variant = parsedVariants[i];
+				if (variant.id) {
+					// Update existing variant
+					await db.ProductVariant.update({
+						name: variant.name,
+						price: variant.price || 0,
+						stock: variant.stock || 0,
+						sku: variant.sku || null,
+						image: variantImageMap[i] || variant.image || null,
+						attributes: variant.attributes || {}
+					}, {
+						where: { id: variant.id, productId: product.id }
+					});
+				} else {
+					// Create new variant
+					// Validate variant SKU doesn't conflict
+					if (variant.sku) {
+						const existingVariant = await db.ProductVariant.findOne({ where: { sku: variant.sku } });
+						if (existingVariant) {
+							return res.status(400).json({
+								error: 'Variant SKU already exists',
+								errors: [{ path: 'variants', msg: `Variant SKU '${variant.sku}' already exists`, value: variant.sku }]
+							});
+						}
+					}
+
+					await db.ProductVariant.create({
+						productId: product.id,
+						name: variant.name,
+						price: variant.price || 0,
+						stock: variant.stock || 0,
+						sku: variant.sku || null,
+						image: variantImageMap[i] || variant.image || null,
+						attributes: variant.attributes || {}
+					});
+				}
+			}
+		}
+
 		await product.update(req.body);
-		res.json(product);
+
+		// Fetch updated product with variants for response
+		const updatedProduct = await db.Product.findByPk(product.id, {
+			include: [{ model: db.ProductVariant, as: 'variants' }]
+		});
+
+		res.json(updatedProduct);
 	} catch (error) {
 		console.error(error);
 		res.status(500).json({ error: error.message });
@@ -228,4 +567,4 @@ async function bulkUpdate(req, res) {
 }
 
 
-module.exports = { list, create, update, remove, bulkUpdate };
+module.exports = { list, get, getBySlug, getFeatured, create, update, remove, bulkUpdate };

@@ -64,7 +64,14 @@ async function get(req, res) {
                 {
                     model: db.OrderItem,
                     as: 'items',
-                    include: [{ model: db.Product, attributes: ['id', 'title', 'image', 'price'] }]
+                    include: [{
+                        model: db.Product,
+                        attributes: ['id', 'title', 'image', 'price'],
+                        include: [{
+                            model: db.Review,
+                            as: 'reviews'
+                        }]
+                    }]
                 },
                 {
                     model: db.Payment,

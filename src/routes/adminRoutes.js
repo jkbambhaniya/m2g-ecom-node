@@ -6,67 +6,84 @@ const categoryCtrl = require('../controllers/admin/categoryController');
 const userCtrl = require('../controllers/admin/userController');
 const orderCtrl = require('../controllers/admin/orderController');
 const heroCtrl = require('../controllers/admin/heroController');
+const reviewCtrl = require('../controllers/admin/reviewController');
 const { updateSettings, getPublicSettings } = require('../controllers/admin/settingsController');
 const paymentCtrl = require('../controllers/paymentController');
+const merchantCtrl = require('../controllers/admin/merchantController');
+const notificationCtrl = require('../controllers/admin/notificationController');
 const { productValidationRules, validate } = require('../utils/validators');
 const upload = require('../utils/upload');
 
-// ============================================
-// PUBLIC ADMIN ROUTES (No Authentication)
-// ============================================
-
-// Admin Auth
+// Admin Authentication Routes
+router.post('/create', createAdmin);
 router.post('/login', loginAdmin);
-router.post('/create', createAdmin); // For initial setup
-
-// ============================================
-// PROTECTED ADMIN ROUTES (Authentication Required)
-// ============================================
-
-// Protected routes
 router.post('/logout', authenticateAdmin, logout);
 router.get('/profile', authenticateAdmin, getProfile);
 router.put('/profile', authenticateAdmin, updateProfile);
 
-// Products
+// Admin Product Management Routes
 router.get('/products', authenticateAdmin, productCtrl.list);
-router.post('/products', authenticateAdmin, upload.single('image'), productValidationRules(), validate, productCtrl.create);
-router.put('/products/:id', authenticateAdmin, upload.single('image'), productValidationRules(), validate, productCtrl.update);
+router.get('/products/featured', authenticateAdmin, productCtrl.getFeatured);
+router.get('/products/slug/:slug', authenticateAdmin, productCtrl.getBySlug);
+router.get('/products/:id', authenticateAdmin, productCtrl.get);
+router.put('/products/bulk-update', authenticateAdmin, productCtrl.bulkUpdate);
+router.post('/products', authenticateAdmin, upload.fields([
+  { name: 'image', maxCount: 10 },
+  { name: 'variants[0][image]', maxCount: 1 },
+  { name: 'variants[1][image]', maxCount: 1 },
+  { name: 'variants[2][image]', maxCount: 1 },
+  { name: 'variants[3][image]', maxCount: 1 },
+  { name: 'variants[4][image]', maxCount: 1 }
+]), productCtrl.create);
+router.put('/products/:id', authenticateAdmin, upload.fields([
+  { name: 'image', maxCount: 10 },
+  { name: 'variants[0][image]', maxCount: 1 },
+  { name: 'variants[1][image]', maxCount: 1 },
+  { name: 'variants[2][image]', maxCount: 1 },
+  { name: 'variants[3][image]', maxCount: 1 },
+  { name: 'variants[4][image]', maxCount: 1 }
+]), productCtrl.update);
 router.delete('/products/:id', authenticateAdmin, productCtrl.remove);
-router.patch('/products/bulk/update', authenticateAdmin, productCtrl.bulkUpdate);
 
-// Categories
-router.get('/categories', categoryCtrl.list);
+// Admin Category Management Routes
+router.get('/categories', authenticateAdmin, categoryCtrl.list);
 router.post('/categories', authenticateAdmin, upload.single('image'), categoryCtrl.create);
 router.put('/categories/:id', authenticateAdmin, upload.single('image'), categoryCtrl.update);
 router.delete('/categories/:id', authenticateAdmin, categoryCtrl.deleteCategory);
 
-// Settings
-router.get('/settings', authenticateAdmin, getPublicSettings);
-router.put('/settings', authenticateAdmin, updateSettings);
-
-// Users
+// Admin User Management Routes
 router.get('/users', authenticateAdmin, userCtrl.list);
 router.get('/users/:id', authenticateAdmin, userCtrl.get);
 
-// Orders
+// Admin Order Management Routes
 router.get('/orders', authenticateAdmin, orderCtrl.list);
 router.get('/orders/:id', authenticateAdmin, orderCtrl.get);
 router.patch('/orders/:id/status', authenticateAdmin, orderCtrl.updateStatus);
 
+// Admin Merchant Management Routes
+router.get('/merchants', authenticateAdmin, merchantCtrl.list);
+router.get('/merchants/:id', authenticateAdmin, merchantCtrl.get);
+router.patch('/merchants/:id/status', authenticateAdmin, merchantCtrl.updateStatus);
+router.delete('/merchants/:id', authenticateAdmin, merchantCtrl.remove);
+
 // Transactions
 router.get('/transactions', authenticateAdmin, paymentCtrl.getAllTransactions);
 
-// Dashboard
-router.get('/dashboard', authenticateAdmin, (req, res) => {
-    res.json({ message: 'Admin Dashboard Data', admin: req.admin.name });
-});
-
-// Hero Section
+// Admin Hero Management Routes
 router.get('/hero', authenticateAdmin, heroCtrl.list);
 router.post('/hero', authenticateAdmin, upload.single('image'), heroCtrl.create);
 router.put('/hero/:id', authenticateAdmin, upload.single('image'), heroCtrl.update);
 router.delete('/hero/:id', authenticateAdmin, heroCtrl.remove);
 router.patch('/hero/:id/toggle', authenticateAdmin, heroCtrl.toggleStatus);
+
+// Admin Review Management Routes
+router.get('/reviews', authenticateAdmin, reviewCtrl.list);
+router.put('/reviews/:id/approve', authenticateAdmin, reviewCtrl.approveReview);
+router.put('/reviews/:id/reject', authenticateAdmin, reviewCtrl.rejectReview);
+router.delete('/reviews/:id', authenticateAdmin, reviewCtrl.deleteReview);
+
+// Admin Settings Routes
+router.put('/settings', authenticateAdmin, updateSettings);
+router.get('/settings/public', getPublicSettings);
 
 module.exports = router;

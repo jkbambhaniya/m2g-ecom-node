@@ -4,7 +4,8 @@ module.exports = (sequelize, DataTypes) => {
     quantity: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 1 },
     price: { type: DataTypes.DECIMAL(10, 2), allowNull: false, defaultValue: 0.00 },
     orderId: { type: DataTypes.INTEGER.UNSIGNED, allowNull: false },
-    productId: { type: DataTypes.INTEGER.UNSIGNED, allowNull: false }
+    productId: { type: DataTypes.INTEGER.UNSIGNED, allowNull: false },
+    variantId: { type: DataTypes.INTEGER.UNSIGNED, allowNull: true }
   }, { tableName: 'order_items' });
 
   OrderItem.associate = (models) => {
@@ -13,6 +14,9 @@ module.exports = (sequelize, DataTypes) => {
     });
     OrderItem.belongsTo(models.Product, {
       foreignKey: 'productId'
+    });
+    OrderItem.belongsTo(models.ProductVariant, {
+      foreignKey: 'variantId'
     });
   };
 

@@ -19,6 +19,7 @@ module.exports = (sequelize, DataTypes) => {
     dimensions: { type: DataTypes.JSON },
     tags: { type: DataTypes.JSON, defaultValue: [] },
     categoryId: { type: DataTypes.INTEGER.UNSIGNED, allowNull: true },
+    merchantId: { type: DataTypes.INTEGER.UNSIGNED, allowNull: true },
     createdAt: { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
     updatedAt: { type: DataTypes.DATE, defaultValue: DataTypes.NOW }
   }, {
@@ -35,8 +36,20 @@ module.exports = (sequelize, DataTypes) => {
     Product.belongsTo(models.Category, {
       foreignKey: 'categoryId'
     });
+    Product.belongsTo(models.Merchant, {
+      foreignKey: 'merchantId',
+      as: 'merchant'
+    });
     Product.hasMany(models.OrderItem, {
       foreignKey: 'productId'
+    });
+    Product.hasMany(models.ProductVariant, {
+      foreignKey: 'productId',
+      as: 'variants'
+    });
+    Product.hasMany(models.Review, {
+      foreignKey: 'productId',
+      as: 'reviews'
     });
   };
 

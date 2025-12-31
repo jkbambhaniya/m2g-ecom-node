@@ -4,15 +4,33 @@ const db = require('../models');
 async function list(req, res) {
     try {
         const userId = req.user.id;
+        const { status } = req.query;
+
+        const where = { userId };
+        if (status) {
+            where.status = status;
+        }
+
         const orders = await db.Order.findAll({
-            where: { userId },
+            where,
             order: [['createdAt', 'DESC']],
             include: [
                 {
                     model: db.OrderItem,
                     as: 'items',
                     attributes: ['id', 'quantity', 'price'],
-                    include: [{ model: db.Product, attributes: ['id', 'title', 'image'] }]
+                    include: [
+                        {
+                            model: db.Product,
+                            attributes: ['id', 'title', 'image'],
+                            include: [{
+                                model: db.Review,
+                                as: 'reviews',
+                                where: { userId },
+                                required: false
+                            }]
+                        }
+                    ]
                 }
             ]
         });
@@ -36,7 +54,18 @@ async function get(req, res) {
                 {
                     model: db.OrderItem,
                     as: 'items',
-                    include: [{ model: db.Product, attributes: ['id', 'title', 'image', 'price'] }]
+                    include: [
+                        {
+                            model: db.Product,
+                            attributes: ['id', 'title', 'image', 'price'],
+                            include: [{
+                                model: db.Review,
+                                as: 'reviews',
+                                where: { userId },
+                                required: false
+                            }]
+                        }
+                    ]
                 },
                 {
                     model: db.Payment,

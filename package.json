@@ -6,6 +6,8 @@
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
     "migrate": "sequelize db:migrate",
+    "migrate:undo": "sequelize db:migrate:undo",
+    "migrate:undo:all": "sequelize db:migrate:undo:all",
     "seed": "node src/seeders/seed.js"
   },
   "dependencies": {

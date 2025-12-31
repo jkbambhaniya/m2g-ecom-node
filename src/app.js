@@ -6,6 +6,7 @@ const db = require('./models');
 const authRoutes = require('./routes/auth');
 const guestRoutes = require('./routes/guestRoutes');
 const adminRoutes = require('./routes/adminRoutes');
+const reviewRoutes = require('./routes/reviewRoutes');
 
 const app = express();
 app.use(cors());
@@ -24,6 +25,13 @@ app.use('/api/payments', paymentRoutes);
 
 // Admin routes (login, protected operations)
 app.use('/api/admin', adminRoutes);
+
+// Merchant routes
+const merchantRoutes = require('./routes/merchantRoutes');
+app.use('/api/merchant', merchantRoutes);
+
+// Review routes
+app.use('/api/reviews', reviewRoutes);
 
 app.get('/', (req, res) => res.json({ msg: 'M2G Ecom API' }));
 

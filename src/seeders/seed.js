@@ -52,6 +52,42 @@ module.exports = {
     ]);
 
     /* ===============================
+       HEROES
+    =============================== */
+    await queryInterface.bulkInsert('heroes', [
+      {
+        title: 'Summer Collection 2024',
+        subtitle: 'Discover the latest trends and styles',
+        image: '/uploads/hero/hero-summer.jpg',
+        link: '/products',
+        position: 1,
+        isActive: true,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      },
+      {
+        title: 'Fresh & Organic Products',
+        subtitle: 'Quality guaranteed for your family',
+        image: '/uploads/hero/hero-organic.jpg',
+        link: '/categories',
+        position: 2,
+        isActive: true,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      },
+      {
+        title: 'Limited Time Offer',
+        subtitle: 'Up to 50% discount on selected items',
+        image: '/uploads/hero/hero-sale.jpg',
+        link: '/products',
+        position: 3,
+        isActive: true,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      }
+    ]);
+
+    /* ===============================
        PRODUCTS
     =============================== */
     await queryInterface.bulkInsert('products', [
@@ -161,6 +197,7 @@ module.exports = {
     await queryInterface.bulkDelete('orders', null, {});
     await queryInterface.bulkDelete('users', null, {});
     await queryInterface.bulkDelete('products', null, {});
+    await queryInterface.bulkDelete('heroes', null, {});
     await queryInterface.bulkDelete('categories', null, {});
     await queryInterface.bulkDelete('admins', null, {});
   }

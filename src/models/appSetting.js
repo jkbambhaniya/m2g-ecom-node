@@ -1,5 +1,5 @@
 module.exports = (sequelize, DataTypes) => {
-	const Settings = sequelize.define('Settings', {
+	const AppSetting = sequelize.define('Settings', {
 		siteName: {
 			type: DataTypes.STRING,
 			defaultValue: 'My E-Commerce'
@@ -21,8 +21,9 @@ module.exports = (sequelize, DataTypes) => {
 			defaultValue: '#1e40af' // Default blue-800
 		}
 	}, {
+		tableName: 'app_settings',
 		timestamps: true
 	});
 
-	return Settings;
+	return AppSetting;
 };

@@ -83,7 +83,10 @@ router.put('/reviews/:id/reject', authenticateAdmin, reviewCtrl.rejectReview);
 router.delete('/reviews/:id', authenticateAdmin, reviewCtrl.deleteReview);
 
 // Admin Settings Routes
-router.put('/settings', authenticateAdmin, updateSettings);
+router.put('/settings', authenticateAdmin, upload.fields([
+  { name: 'logo', maxCount: 1 },
+  { name: 'favicon', maxCount: 1 }
+]), updateSettings);
 router.get('/settings/public', getPublicSettings);
 
 module.exports = router;

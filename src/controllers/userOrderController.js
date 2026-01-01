@@ -18,7 +18,7 @@ async function list(req, res) {
                 {
                     model: db.OrderItem,
                     as: 'items',
-                    attributes: ['id', 'quantity', 'price'],
+                    attributes: ['id', 'quantity', 'price', 'adminCommission', 'merchantAmount', 'commissionPercent'],
                     include: [
                         {
                             model: db.Product,
@@ -54,6 +54,7 @@ async function get(req, res) {
                 {
                     model: db.OrderItem,
                     as: 'items',
+                    attributes: ['id', 'quantity', 'price', 'adminCommission', 'merchantAmount', 'commissionPercent'],
                     include: [
                         {
                             model: db.Product,
@@ -66,7 +67,8 @@ async function get(req, res) {
                             }]
                         }
                     ]
-                },
+                }
+                ,
                 {
                     model: db.Payment,
                     as: 'payments'

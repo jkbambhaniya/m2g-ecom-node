@@ -1,18 +1,18 @@
 const { Model, DataTypes } = require('sequelize');
 
 module.exports = (sequelize) => {
-    class WishlistItem extends Model {
+    class Wishlist extends Model {
         static associate(models) {
-            WishlistItem.belongsTo(models.User, {
+            Wishlist.belongsTo(models.User, {
                 foreignKey: 'userId'
             });
-            WishlistItem.belongsTo(models.Product, {
+            Wishlist.belongsTo(models.Product, {
                 foreignKey: 'productId'
             });
         }
     }
 
-    WishlistItem.init({
+    Wishlist.init({
         id: {
             type: DataTypes.INTEGER.UNSIGNED,
             primaryKey: true,
@@ -28,10 +28,10 @@ module.exports = (sequelize) => {
         }
     }, {
         sequelize,
-        modelName: 'WishlistItem',
-        tableName: 'wishlist_items',
+        modelName: 'Wishlist',
+        tableName: 'wishlists',
         timestamps: true
     });
 
-    return WishlistItem;
+    return Wishlist;
 };

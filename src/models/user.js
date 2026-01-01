@@ -27,11 +27,11 @@ module.exports = (sequelize, DataTypes) => {
       foreignKey: 'userId',
       as: 'orders'
     });
-    User.hasMany(models.CartItem, {
+    User.hasMany(models.Cart, {
       foreignKey: 'userId',
       as: 'cartItems'
     });
-    User.hasMany(models.WishlistItem, {
+    User.hasMany(models.Wishlist, {
       foreignKey: 'userId',
       as: 'wishlistItems'
     });

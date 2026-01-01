@@ -18,7 +18,7 @@ module.exports = (sequelize, DataTypes) => {
             foreignKey: 'productId',
             onDelete: 'CASCADE'
         });
-        ProductVariant.hasMany(models.CartItem, {
+        ProductVariant.hasMany(models.Cart, {
             foreignKey: 'variantId'
         });
         ProductVariant.hasMany(models.OrderItem, {

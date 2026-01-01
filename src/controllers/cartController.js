@@ -7,7 +7,7 @@ async function syncCart(req, res) {
         const userId = req.user.id;
 
         // Clear existing cart items
-        await db.CartItem.destroy({
+        await db.Cart.destroy({
             where: { userId },
             transaction
         });
@@ -19,7 +19,7 @@ async function syncCart(req, res) {
                 quantity: item.quantity || 1
             }));
 
-            await db.CartItem.bulkCreate(cartData, { transaction });
+            await db.Cart.bulkCreate(cartData, { transaction });
         }
 
         await transaction.commit();
@@ -34,7 +34,7 @@ async function syncCart(req, res) {
 async function getCart(req, res) {
     try {
         const userId = req.user.id;
-        const cartItems = await db.CartItem.findAll({
+        const cartItems = await db.Cart.findAll({
             where: { userId },
             include: [{
                 model: db.Product,

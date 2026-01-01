@@ -20,6 +20,19 @@ exports.getPublicSettings = async (req, res) => {
 
 exports.updateSettings = async (req, res) => {
 	try {
+		// Handle file uploads (logo, favicon) if present via multer
+		if (req.files) {
+			if (req.files.logo && req.files.logo[0]) {
+				// multer stores file in destination with filename
+				const f = req.files.logo[0];
+				req.body.logoUrl = `/uploads/${f.filename}`;
+			}
+			if (req.files.favicon && req.files.favicon[0]) {
+				const f = req.files.favicon[0];
+				req.body.faviconUrl = `/uploads/${f.filename}`;
+			}
+		}
+
 		let settings = await Settings.findOne();
 		if (!settings) {
 			settings = await Settings.create({

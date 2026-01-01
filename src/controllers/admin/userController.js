@@ -44,24 +44,25 @@ async function get(req, res) {
         const user = await db.User.findByPk(req.params.id, {
             attributes: { exclude: ['password'] },
             include: [
-                {
-                    model: db.Order,
-                    as: 'orders',
-                    include: [
                         {
-                            model: db.OrderItem,
-                            as: 'items',
-                            include: [{ model: db.Product, attributes: ['id', 'title', 'image', 'price'] }]
-                        }
-                    ]
-                },
+                            model: db.Order,
+                            as: 'orders',
+                            include: [
+                                {
+                                    model: db.OrderItem,
+                                    as: 'items',
+                                    attributes: ['id', 'quantity', 'price', 'adminCommission', 'merchantAmount', 'commissionPercent'],
+                                    include: [{ model: db.Product, attributes: ['id', 'title', 'image', 'price'] }]
+                                }
+                            ]
+                        },
                 {
-                    model: db.CartItem,
+                    model: db.Cart,
                     as: 'cartItems',
                     include: [{ model: db.Product, attributes: ['id', 'title', 'image', 'price'] }]
                 },
                 {
-                    model: db.WishlistItem,
+                    model: db.Wishlist,
                     as: 'wishlistItems',
                     include: [{ model: db.Product, attributes: ['id', 'title', 'image', 'price'] }]
                 }

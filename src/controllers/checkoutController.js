@@ -85,7 +85,7 @@ async function checkout(req, res) {
         }
 
         // Clear user's persistent cart if any
-        await db.CartItem.destroy({
+        await db.Cart.destroy({
             where: { userId },
             transaction
         });

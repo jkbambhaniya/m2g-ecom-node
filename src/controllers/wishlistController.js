@@ -6,7 +6,7 @@ async function addToWishlist(req, res) {
         const userId = req.user.id;
 
         // Check if already in wishlist
-        const existing = await db.WishlistItem.findOne({
+        const existing = await db.Wishlist.findOne({
             where: { userId, productId }
         });
 
@@ -15,7 +15,7 @@ async function addToWishlist(req, res) {
         }
 
         // Add to wishlist
-        await db.WishlistItem.create({ userId, productId });
+        await db.Wishlist.create({ userId, productId });
 
         res.json({ message: 'Added to wishlist successfully' });
     } catch (error) {
@@ -29,7 +29,7 @@ async function removeFromWishlist(req, res) {
         const { productId } = req.params;
         const userId = req.user.id;
 
-        await db.WishlistItem.destroy({
+        await db.Wishlist.destroy({
             where: { userId, productId }
         });
 
@@ -44,7 +44,7 @@ async function getWishlist(req, res) {
     try {
         const userId = req.user.id;
 
-        const wishlistItems = await db.WishlistItem.findAll({
+        const wishlistItems = await db.Wishlist.findAll({
             where: { userId },
             include: [{
                 model: db.Product,
@@ -67,7 +67,7 @@ async function syncWishlist(req, res) {
         const userId = req.user.id;
 
         // Clear existing wishlist items
-        await db.WishlistItem.destroy({
+        await db.Wishlist.destroy({
             where: { userId },
             transaction
         });
@@ -78,7 +78,7 @@ async function syncWishlist(req, res) {
                 productId: item.productId
             }));
 
-            await db.WishlistItem.bulkCreate(wishlistData, { transaction });
+            await db.Wishlist.bulkCreate(wishlistData, { transaction });
         }
 
         await transaction.commit();

@@ -144,12 +144,25 @@ const broadcastDashboardStats = async () => {
         };
 
         logMsg('🔄 Calculating dashboard stats for broadcast...');
-        const stats = await calculateDashboardStats();
+        const stats = await calculateDashboardStats(
+            connectedUsers.size,
+            connectedAdmins.size // Assuming admins are treated as "Active Merchants" or just showing online admins
+        );
 
         // Check room occupancy
         const room = io.sockets.adapter.rooms.get('dashboard_admins');
         const numClients = room ? room.size : 0;
-        logMsg(`CLIENT_COUNT: ${numClients} in dashboard_admins room`);
+
+        logMsg('📊 DYNAMIC DASHBOARD STATS: ' + JSON.stringify({
+            revenue: stats.totalRevenue,
+            orders: stats.totalOrders,
+            users: stats.activeUsers,
+            merchants: stats.activeMerchants,
+            online_users: stats.onlineUsers,
+            online_merchants: stats.onlineMerchants,
+            today_revenue: stats.dailySales[stats.dailySales.length - 1],
+            connected_admins: numClients
+        }, null, 2));
 
         io.to('dashboard_admins').emit('dashboard_stats_update', stats);
         logMsg('📊 Dashboard stats broadcasted successfully');

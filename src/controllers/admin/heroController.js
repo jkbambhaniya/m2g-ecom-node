@@ -31,6 +31,18 @@ async function create(req, res) {
             isActive: isActive === 'false' ? false : true
         });
 
+        // create admin notification
+        try {
+            await db.Notification.create({
+                type: 'hero_created',
+                title: 'Hero slide created',
+                message: `Hero \"${hero.title}\" was created`,
+                data: { heroId: hero.id }
+            });
+        } catch (e) {
+            console.error('Notification error:', e.message);
+        }
+
         res.status(201).json(hero);
     } catch (error) {
         res.status(400).json({ error: error.message });
@@ -58,6 +70,17 @@ async function update(req, res) {
         }
 
         await hero.save();
+
+        try {
+            await db.Notification.create({
+                type: 'hero_updated',
+                title: 'Hero slide updated',
+                message: `Hero \"${hero.title}\" was updated`,
+                data: { heroId: hero.id }
+            });
+        } catch (e) {
+            console.error('Notification error:', e.message);
+        }
         res.json(hero);
     } catch (error) {
         res.status(400).json({ error: error.message });
@@ -72,6 +95,17 @@ async function remove(req, res) {
             return res.status(404).json({ error: 'Hero slide not found' });
         }
         await hero.destroy();
+        try {
+            await db.Notification.create({
+                type: 'hero_deleted',
+                title: 'Hero slide deleted',
+                message: `Hero \"${hero.title}\" was deleted`,
+                data: { heroId: hero.id }
+            });
+        } catch (e) {
+            console.error('Notification error:', e.message);
+        }
+
         res.json({ message: 'Hero slide deleted successfully' });
     } catch (error) {
         res.status(500).json({ error: error.message });
@@ -87,6 +121,17 @@ async function toggleStatus(req, res) {
         }
         hero.isActive = !hero.isActive;
         await hero.save();
+        try {
+            await db.Notification.create({
+                type: 'hero_toggled',
+                title: 'Hero slide status changed',
+                message: `Hero \"${hero.title}\" is now ${hero.isActive ? 'active' : 'inactive'}`,
+                data: { heroId: hero.id, isActive: hero.isActive }
+            });
+        } catch (e) {
+            console.error('Notification error:', e.message);
+        }
+
         res.json(hero);
     } catch (error) {
         res.status(500).json({ error: error.message });

@@ -69,6 +69,10 @@ router.delete('/merchants/:id', authenticateAdmin, merchantCtrl.remove);
 // Transactions
 router.get('/transactions', authenticateAdmin, paymentCtrl.getAllTransactions);
 
+// Admin Notifications
+router.get('/notifications', authenticateAdmin, notificationCtrl.list);
+router.post('/notifications/mark-read', authenticateAdmin, notificationCtrl.markAsRead);
+
 // Admin Hero Management Routes
 router.get('/hero', authenticateAdmin, heroCtrl.list);
 router.post('/hero', authenticateAdmin, upload.single('image'), heroCtrl.create);

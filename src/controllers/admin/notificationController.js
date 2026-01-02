@@ -24,3 +24,4 @@ async function markAsRead(req, res) {
 }
 
 module.exports = { list, markAsRead };
+module.exports = { list, markAsRead, markOne };

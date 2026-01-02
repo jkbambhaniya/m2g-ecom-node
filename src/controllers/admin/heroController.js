@@ -33,12 +33,24 @@ async function create(req, res) {
 
         // create admin notification
         try {
-            await db.Notification.create({
+            const notif = await db.Notification.create({
                 type: 'hero_created',
                 title: 'Hero slide created',
-                message: `Hero \"${hero.title}\" was created`,
-                data: { heroId: hero.id }
+                message: `Hero \"${hero.title}\" was created`
             });
+
+            // Emit real-time notification
+            const io = req.app.locals.io;
+            if (io) {
+                io.emit('notification:new', {
+                    id: notif.id,
+                    type: notif.type,
+                    title: notif.title,
+                    message: notif.message,
+                    createdAt: notif.createdAt,
+                    isRead: notif.isRead
+                });
+            }
         } catch (e) {
             console.error('Notification error:', e.message);
         }
@@ -72,12 +84,23 @@ async function update(req, res) {
         await hero.save();
 
         try {
-            await db.Notification.create({
+            const notif = await db.Notification.create({
                 type: 'hero_updated',
                 title: 'Hero slide updated',
-                message: `Hero \"${hero.title}\" was updated`,
-                data: { heroId: hero.id }
+                message: `Hero \"${hero.title}\" was updated`
             });
+
+            const io = req.app.locals.io;
+            if (io) {
+                io.emit('notification:new', {
+                    id: notif.id,
+                    type: notif.type,
+                    title: notif.title,
+                    message: notif.message,
+                    createdAt: notif.createdAt,
+                    isRead: notif.isRead
+                });
+            }
         } catch (e) {
             console.error('Notification error:', e.message);
         }
@@ -96,12 +119,23 @@ async function remove(req, res) {
         }
         await hero.destroy();
         try {
-            await db.Notification.create({
+            const notif = await db.Notification.create({
                 type: 'hero_deleted',
                 title: 'Hero slide deleted',
-                message: `Hero \"${hero.title}\" was deleted`,
-                data: { heroId: hero.id }
+                message: `Hero \"${hero.title}\" was deleted`
             });
+
+            const io = req.app.locals.io;
+            if (io) {
+                io.emit('notification:new', {
+                    id: notif.id,
+                    type: notif.type,
+                    title: notif.title,
+                    message: notif.message,
+                    createdAt: notif.createdAt,
+                    isRead: notif.isRead
+                });
+            }
         } catch (e) {
             console.error('Notification error:', e.message);
         }
@@ -122,12 +156,23 @@ async function toggleStatus(req, res) {
         hero.isActive = !hero.isActive;
         await hero.save();
         try {
-            await db.Notification.create({
+            const notif = await db.Notification.create({
                 type: 'hero_toggled',
                 title: 'Hero slide status changed',
-                message: `Hero \"${hero.title}\" is now ${hero.isActive ? 'active' : 'inactive'}`,
-                data: { heroId: hero.id, isActive: hero.isActive }
+                message: `Hero \"${hero.title}\" is now ${hero.isActive ? 'active' : 'inactive'}`
             });
+
+            const io = req.app.locals.io;
+            if (io) {
+                io.emit('notification:new', {
+                    id: notif.id,
+                    type: notif.type,
+                    title: notif.title,
+                    message: notif.message,
+                    createdAt: notif.createdAt,
+                    isRead: notif.isRead
+                });
+            }
         } catch (e) {
             console.error('Notification error:', e.message);
         }

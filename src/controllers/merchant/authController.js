@@ -32,11 +32,26 @@ async function createMerchant(req, res) {
 
         // Create notification for admin
         try {
-            await Notification.create({
+            const notif = await Notification.create({
                 type: 'merchant_registration',
-                message: `New merchant registered: ${shopName || name}`,
-                data: { merchantId: merchant.id }
+                title: 'New merchant registered',
+                message: `New merchant registered: ${merchant.shopName || merchant.name}`,
+                merchantId: merchant.id
             });
+
+            // Emit real-time notification via Socket.IO
+            const io = req.app.locals.io;
+            if (io) {
+                io.emit('notification:new', {
+                    id: notif.id,
+                    type: notif.type,
+                    title: notif.title,
+                    message: notif.message,
+                    merchantId: notif.merchantId,
+                    createdAt: notif.createdAt,
+                    isRead: notif.isRead
+                });
+            }
         } catch (notifErr) {
             console.warn('Failed to create notification:', notifErr.message);
             // Continue anyway, notification is not critical

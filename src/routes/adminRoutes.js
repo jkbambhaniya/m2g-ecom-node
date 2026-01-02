@@ -80,6 +80,11 @@ router.put('/hero/:id', authenticateAdmin, upload.single('image'), heroCtrl.upda
 router.delete('/hero/:id', authenticateAdmin, heroCtrl.remove);
 router.patch('/hero/:id/toggle', authenticateAdmin, heroCtrl.toggleStatus);
 
+// Admin Notifications
+router.get('/notifications', authenticateAdmin, notificationCtrl.list);
+router.post('/notifications/mark-read', authenticateAdmin, notificationCtrl.markAsRead);
+router.post('/notifications/:id/mark-read', authenticateAdmin, notificationCtrl.markOne);
+
 // Admin Review Management Routes
 router.get('/reviews', authenticateAdmin, reviewCtrl.list);
 router.put('/reviews/:id/approve', authenticateAdmin, reviewCtrl.approveReview);

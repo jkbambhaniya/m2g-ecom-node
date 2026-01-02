@@ -64,7 +64,7 @@ async function get(req, res) {
                 {
                     model: db.OrderItem,
                     as: 'items',
-                    attributes: ['id', 'quantity', 'price', 'adminCommission', 'merchantAmount', 'commissionPercent'],
+                    attributes: ['id', 'quantity', 'price'],
                     include: [{
                         model: db.Product,
                         attributes: ['id', 'title', 'image', 'price'],
@@ -107,6 +107,10 @@ async function updateStatus(req, res) {
 
         order.status = status;
         await order.save();
+
+        // Broadcast update via socket
+        if (req.broadcastOrderUpdate) req.broadcastOrderUpdate(order);
+        if (req.broadcastDashboardStats) req.broadcastDashboardStats();
 
         res.json({ message: 'Order status updated successfully', order });
     } catch (error) {

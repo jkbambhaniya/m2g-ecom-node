@@ -6,6 +6,10 @@ async function register(req, res) {
 	try {
 		const user = await db.User.create({ name, email, password });
 		const token = sign({ id: user.id, email: user.email });
+
+		// Broadcast updated stats to admin dashboard
+		if (req.broadcastDashboardStats) req.broadcastDashboardStats();
+
 		res.json({ user: { id: user.id, name: user.name, email: user.email }, token });
 	} catch (err) {
 		res.status(400).json({ error: err.message });

@@ -2,6 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const db = require('./models');
+const socketMiddleware = require('./middleware/socketMiddleware');
 
 const authRoutes = require('./routes/auth');
 const guestRoutes = require('./routes/guestRoutes');
@@ -14,17 +15,20 @@ app.use(express.json());
 app.use('/public', express.static('public'));
 app.use('/uploads', express.static('public/uploads'));
 
+// Socket middleware
+app.use(socketMiddleware);
+
 // User authentication routes
 app.use('/api/auth', authRoutes);
 
-// Guest routes (products, categories, settings - read-only)
-app.use('/api', guestRoutes);
+// Admin routes (login, protected operations)
+app.use('/api/admin', adminRoutes);
 
 const paymentRoutes = require('./routes/paymentRoutes');
 app.use('/api/payments', paymentRoutes);
 
-// Admin routes (login, protected operations)
-app.use('/api/admin', adminRoutes);
+// Guest routes (products, categories, settings - read-only)
+app.use('/api', guestRoutes);
 
 // Merchant routes
 const merchantRoutes = require('./routes/merchantRoutes');
@@ -39,5 +43,6 @@ app.use((err, req, res, next) => {
   console.error(err);
   res.status(500).json({ error: err.message });
 });
+
 
 module.exports = app;

@@ -74,6 +74,13 @@ async function updateStatus(req, res) {
         }
 
         await merchant.update({ isActive });
+
+        // Broadcast updated stats to dashboard
+        const broadcastDashboardStats = req.app.locals.broadcastDashboardStats;
+        if (broadcastDashboardStats) {
+            broadcastDashboardStats();
+        }
+
         res.json({ message: 'Merchant status updated', merchant });
     } catch (error) {
         console.error(error);

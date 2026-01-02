@@ -11,8 +11,12 @@ const { updateSettings, getPublicSettings } = require('../controllers/admin/sett
 const paymentCtrl = require('../controllers/paymentController');
 const merchantCtrl = require('../controllers/admin/merchantController');
 const notificationCtrl = require('../controllers/admin/notificationController');
+const dashboardCtrl = require('../controllers/admin/dashboardController');
 const { productValidationRules, validate } = require('../utils/validators');
 const upload = require('../utils/upload');
+
+// Dashboard Stats Route
+router.get('/dashboard/stats', authenticateAdmin, dashboardCtrl.getStats);
 
 // Admin Authentication Routes
 router.post('/create', createAdmin);

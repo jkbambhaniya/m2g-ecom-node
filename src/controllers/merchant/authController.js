@@ -6,7 +6,7 @@ async function createMerchant(req, res) {
     try {
         // Validate required fields
         if (!name || !email || !password) {
-            return res.status(400).json({ 
+            return res.status(400).json({
                 error: 'Validation error',
                 details: 'Name, email, and password are required'
             });
@@ -15,7 +15,7 @@ async function createMerchant(req, res) {
         // Check if merchant already exists
         const existingMerchant = await Merchant.findOne({ where: { email } });
         if (existingMerchant) {
-            return res.status(400).json({ 
+            return res.status(400).json({
                 error: 'Validation error',
                 details: 'Email already registered'
             });
@@ -41,6 +41,8 @@ async function createMerchant(req, res) {
 
             // Emit real-time notification via Socket.IO
             const io = req.app.locals.io;
+            const broadcastDashboardStats = req.app.locals.broadcastDashboardStats;
+
             if (io) {
                 io.emit('notification:new', {
                     id: notif.id,
@@ -51,6 +53,11 @@ async function createMerchant(req, res) {
                     createdAt: notif.createdAt,
                     isRead: notif.isRead
                 });
+
+                // Also update dashboard stats
+                if (broadcastDashboardStats) {
+                    broadcastDashboardStats();
+                }
             }
         } catch (notifErr) {
             console.warn('Failed to create notification:', notifErr.message);
@@ -59,17 +66,17 @@ async function createMerchant(req, res) {
 
         res.json({
             message: 'Registration successful. Please wait for admin approval.',
-            merchant: { 
-                id: merchant.id, 
-                name: merchant.name, 
-                email: merchant.email, 
-                shopName: merchant.shopName, 
-                image: merchant.image 
+            merchant: {
+                id: merchant.id,
+                name: merchant.name,
+                email: merchant.email,
+                shopName: merchant.shopName,
+                image: merchant.image
             }
         });
     } catch (err) {
         console.error('Merchant registration error:', err);
-        res.status(400).json({ 
+        res.status(400).json({
             error: 'Validation error',
             details: err.message
         });

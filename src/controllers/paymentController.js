@@ -53,6 +53,8 @@ async function verifyPayment(req, res) {
 
             // Update the order in our database
             if (orderId) {
+                const updatedOrder = await db.Order.findByPk(orderId);
+                
                 await db.Order.update({
                     paymentStatus: 'completed',
                     paymentMethod: 'razorpay',
@@ -64,14 +66,35 @@ async function verifyPayment(req, res) {
                     where: { id: orderId },
                     transaction
                 });
+
+                // Get updated order with relationships
+                const order = await db.Order.findByPk(orderId, {
+                    include: [
+                        { model: db.User, attributes: ['id', 'name', 'email'] },
+                        { model: db.OrderItem }
+                    ],
+                    transaction
+                });
+
+                await transaction.commit();
+
+                // Emit WebSocket event for new order
+                if (req.app.locals.broadcastNewOrder) {
+                    req.app.locals.broadcastNewOrder(order);
+                }
+
+                res.json({
+                    success: true,
+                    message: "Payment verified successfully",
+                    orderId: order.id
+                });
+            } else {
+                await transaction.commit();
+                res.json({
+                    success: true,
+                    message: "Payment verified successfully"
+                });
             }
-
-            await transaction.commit();
-
-            res.json({
-                success: true,
-                message: "Payment verified successfully"
-            });
         } else {
             await transaction.rollback();
             res.status(400).json({

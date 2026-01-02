@@ -96,10 +96,26 @@ io.on('connection', (socket) => {
         socket.join('users_admins');
         console.log(`👥 Socket ${socket.id} joined users_admins room`);
     });
+
+    // Merchant subscriptions
+    socket.on('subscribe_merchant_dashboard', (merchantId) => {
+        if (merchantId) {
+            socket.join(`merchant_dashboard_${merchantId}`);
+            console.log(`📊 Merchant Socket ${socket.id} joined merchant_dashboard_${merchantId} room`);
+        }
+    });
+
+    socket.on('subscribe_merchant_orders', (merchantId) => {
+        if (merchantId) {
+            socket.join(`merchant_orders_${merchantId}`);
+            console.log(`📦 Merchant Socket ${socket.id} joined merchant_orders_${merchantId} room`);
+        }
+    });
 });
 
 // Emit order status update events
-const broadcastOrderUpdate = (order, eventType = 'order_status_updated') => {
+const broadcastOrderUpdate = async (order, eventType = 'order_status_updated') => {
+    // 1. Notify Admins
     io.to('orders_admins').emit(eventType, {
         orderId: order.id,
         orderNumber: order.orderNumber,
@@ -108,9 +124,32 @@ const broadcastOrderUpdate = (order, eventType = 'order_status_updated') => {
         customerName: order.User?.name,
         timestamp: new Date().toISOString()
     });
+
+    // 2. Notify relevant Merchants
+    try {
+        const orderItems = await db.OrderItem.findAll({
+            where: { orderId: order.id },
+            include: [{ model: db.Product, attributes: ['merchantId'] }]
+        });
+
+        const merchantIds = [...new Set(orderItems.map(item => item.Product?.merchantId).filter(id => id))];
+
+        merchantIds.forEach(mId => {
+            io.to(`merchant_orders_${mId}`).emit(eventType, {
+                orderId: order.id,
+                status: order.status,
+                timestamp: new Date().toISOString()
+            });
+            // Also notify merchant dashboard to refresh stats
+            broadcastMerchantDashboardStats(mId);
+        });
+    } catch (error) {
+        console.error('Error broadcasting to merchants:', error);
+    }
 };
 
-const broadcastNewOrder = (order) => {
+const broadcastNewOrder = async (order) => {
+    // 1. Notify Admins
     io.to('orders_admins').emit('new_order', {
         id: order.id,
         orderNumber: order.orderNumber,
@@ -129,8 +168,42 @@ const broadcastNewOrder = (order) => {
         timestamp: new Date().toISOString()
     });
 
-    // Broadcast updated stats
+    // 2. Notify relevant Merchants
+    try {
+        const orderItems = await db.OrderItem.findAll({
+            where: { orderId: order.id },
+            include: [{ model: db.Product, attributes: ['merchantId'] }]
+        });
+
+        const merchantIds = [...new Set(orderItems.map(item => item.Product?.merchantId).filter(id => id))];
+
+        merchantIds.forEach(mId => {
+            io.to(`merchant_orders_${mId}`).emit('new_order', {
+                id: order.id,
+                total: order.total,
+                status: order.status,
+                createdAt: order.createdAt,
+                timestamp: new Date().toISOString()
+            });
+            // Also notify merchant dashboard to refresh stats
+            broadcastMerchantDashboardStats(mId);
+        });
+    } catch (error) {
+        console.error('Error broadcasting new order to merchants:', error);
+    }
+
+    // Broadcast updated stats to admins
     broadcastDashboardStats();
+};
+
+const broadcastMerchantDashboardStats = async (merchantId) => {
+    try {
+        const { calculateMerchantDashboardStats } = require('./services/statsService');
+        const stats = await calculateMerchantDashboardStats(merchantId);
+        io.to(`merchant_dashboard_${merchantId}`).emit('dashboard_stats_update', stats);
+    } catch (error) {
+        console.error(`Error broadcasting stats to merchant ${merchantId}:`, error);
+    }
 };
 
 const broadcastDashboardStats = async () => {

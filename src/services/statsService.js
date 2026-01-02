@@ -17,9 +17,7 @@ async function calculateDashboardStats() {
     const activeUsers = await db.User.count();
 
     // Active Merchants
-    const activeMerchants = await db.Merchant.count({
-        where: { isActive: true }
-    });
+    const activeMerchants = await db.Merchant.count();
 
     console.log('DEBUG DASHBOARD STATS:', {
         totalRevenueResult,
@@ -60,10 +58,10 @@ async function calculateDashboardStats() {
     const userGrowth = usersLastMonth === 0 ? 100 : ((usersThisMonth - usersLastMonth) / usersLastMonth) * 100;
 
     const merchantsThisMonth = await db.Merchant.count({
-        where: { isActive: true, createdAt: { [Op.gte]: startOfThisMonth } }
+        where: { createdAt: { [Op.gte]: startOfThisMonth } }
     });
     const merchantsLastMonth = await db.Merchant.count({
-        where: { isActive: true, createdAt: { [Op.between]: [startOfLastMonth, endOfLastMonth] } }
+        where: { createdAt: { [Op.between]: [startOfLastMonth, endOfLastMonth] } }
     });
     const merchantGrowth = merchantsLastMonth === 0 ? 100 : ((merchantsThisMonth - merchantsLastMonth) / merchantsLastMonth) * 100;
 

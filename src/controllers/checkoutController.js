@@ -92,6 +92,25 @@ async function checkout(req, res) {
 
         await transaction.commit();
 
+        // Fetch full order for broadcast (including user info for dashboard)
+        try {
+            const fullOrder = await db.Order.findByPk(order.id, {
+                include: [{ model: db.User, attributes: ['id', 'name', 'email'] }]
+            });
+            if (req.broadcastNewOrder) {
+                console.log('📡 Broadcasting new order event');
+                req.broadcastNewOrder(fullOrder);
+            }
+        } catch (broadcastErr) {
+            console.warn('⚠️ Failed to broadcast new order details:', broadcastErr.message);
+        }
+
+        // Broadcast updated stats to admin dashboard
+        if (req.broadcastDashboardStats) {
+            console.log('📡 Broadcasting stats after checkout');
+            req.broadcastDashboardStats();
+        }
+
         res.status(201).json({
             message: 'Order placed successfully',
             orderId: order.id

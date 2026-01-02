@@ -31,6 +31,10 @@ app.use('/api', guestRoutes);
 const merchantRoutes = require('./routes/merchantRoutes');
 app.use('/api/merchant', merchantRoutes);
 
+// Payment routes
+const paymentRoutes = require('./routes/paymentRoutes');
+app.use('/api/payments', paymentRoutes);
+
 // Review routes
 app.use('/api/reviews', reviewRoutes);
 

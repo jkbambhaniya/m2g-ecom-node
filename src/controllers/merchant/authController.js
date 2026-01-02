@@ -55,8 +55,8 @@ async function createMerchant(req, res) {
                 });
 
                 // Also update dashboard stats
-                if (broadcastDashboardStats) {
-                    broadcastDashboardStats();
+                if (req.broadcastDashboardStats) {
+                    req.broadcastDashboardStats();
                 }
             }
         } catch (notifErr) {

@@ -4,6 +4,8 @@ function socketMiddleware(req, res, next) {
     req.broadcastNewOrder = req.app.locals.broadcastNewOrder;
     req.broadcastOrderUpdate = req.app.locals.broadcastOrderUpdate;
     req.broadcastDashboardStats = req.app.locals.broadcastDashboardStats;
+
+    console.log('🛠️ SocketMiddleware: attached broadcastDashboardStats?', !!req.broadcastDashboardStats);
     next();
 }
 

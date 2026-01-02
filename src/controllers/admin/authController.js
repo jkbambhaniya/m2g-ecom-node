@@ -5,6 +5,13 @@ async function createAdmin(req, res) {
 	const { name, email, password } = req.body;
 	try {
 		const admin = await Admin.create({ name, email, password });
+
+		// Broadcast updated stats to admin dashboard
+		if (req.broadcastDashboardStats) {
+			console.log('📡 Broadcasting stats after admin creation');
+			req.broadcastDashboardStats();
+		}
+
 		res.json({ admin: { id: admin.id, name: admin.name, email: admin.email } });
 	} catch (err) {
 		res.status(400).json({ error: err.message });

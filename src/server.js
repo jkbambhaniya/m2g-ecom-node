@@ -11,10 +11,12 @@ const server = http.createServer(app);
 // Socket.IO setup for real-time notifications
 const io = new Server(server, {
     cors: {
-        origin: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000',
+        origin: "*", // More permissive for local development to ensure connection
         methods: ['GET', 'POST'],
         credentials: true
-    }
+    },
+    transports: ['websocket', 'polling'],
+    allowEIO3: true
 });
 
 // Store connected admins and users
@@ -82,17 +84,17 @@ io.on('connection', (socket) => {
     // Handle custom events
     socket.on('subscribe_dashboard', () => {
         socket.join('dashboard_admins');
-        console.log('📊 Admin subscribed to dashboard');
+        console.log(`📊 Socket ${socket.id} joined dashboard_admins room`);
     });
 
     socket.on('subscribe_orders', () => {
         socket.join('orders_admins');
-        console.log('📦 Admin subscribed to orders');
+        console.log(`📦 Socket ${socket.id} joined orders_admins room`);
     });
 
     socket.on('subscribe_users', () => {
         socket.join('users_admins');
-        console.log('👥 Admin subscribed to users');
+        console.log(`👥 Socket ${socket.id} joined users_admins room`);
     });
 });
 
@@ -133,11 +135,26 @@ const broadcastNewOrder = (order) => {
 
 const broadcastDashboardStats = async () => {
     try {
+        const fs = require('fs');
+        const path = require('path');
+        const logMsg = (msg) => {
+            const timestamp = new Date().toISOString();
+            fs.appendFileSync(path.join(process.cwd(), 'debug.log'), `[${timestamp}] ${msg}\n`);
+            console.log(`[BROADCAST] ${msg}`);
+        };
+
+        logMsg('🔄 Calculating dashboard stats for broadcast...');
         const stats = await calculateDashboardStats();
+
+        // Check room occupancy
+        const room = io.sockets.adapter.rooms.get('dashboard_admins');
+        const numClients = room ? room.size : 0;
+        logMsg(`CLIENT_COUNT: ${numClients} in dashboard_admins room`);
+
         io.to('dashboard_admins').emit('dashboard_stats_update', stats);
-        console.log('📊 Dashboard stats broadcasted');
+        logMsg('📊 Dashboard stats broadcasted successfully');
     } catch (error) {
-        console.error('Error broadcasting dashboard stats:', error);
+        console.error('❌ Error broadcasting dashboard stats:', error);
     }
 };
 
@@ -149,6 +166,9 @@ app.locals.broadcastDashboardStats = broadcastDashboardStats;
 app.locals.connectedUsers = connectedUsers;
 
 async function start() {
-    server.listen(PORT, () => console.log(`Server running on port ${PORT} - Restarted at ${new Date().toISOString()}`));
+    server.listen(PORT, () => {
+        console.log(`🚀 Server running on port ${PORT}`);
+        console.log(`📡 broadcastDashboardStats attached to app.locals: ${!!app.locals.broadcastDashboardStats}`);
+    });
 }
 start();

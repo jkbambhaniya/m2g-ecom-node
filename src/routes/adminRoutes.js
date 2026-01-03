@@ -11,7 +11,9 @@ const { updateSettings, getPublicSettings } = require('../controllers/admin/sett
 const paymentCtrl = require('../controllers/paymentController');
 const merchantCtrl = require('../controllers/admin/merchantController');
 const notificationCtrl = require('../controllers/admin/notificationController');
+
 const dashboardCtrl = require('../controllers/admin/dashboardController');
+const attributeCtrl = require('../controllers/admin/attributeController');
 const { productValidationRules, validate } = require('../utils/validators');
 const upload = require('../utils/upload');
 
@@ -31,23 +33,14 @@ router.get('/products/featured', authenticateAdmin, productCtrl.getFeatured);
 router.get('/products/slug/:slug', authenticateAdmin, productCtrl.getBySlug);
 router.get('/products/:id', authenticateAdmin, productCtrl.get);
 router.put('/products/bulk-update', authenticateAdmin, productCtrl.bulkUpdate);
-router.post('/products', authenticateAdmin, upload.fields([
-  { name: 'image', maxCount: 10 },
-  { name: 'variants[0][image]', maxCount: 1 },
-  { name: 'variants[1][image]', maxCount: 1 },
-  { name: 'variants[2][image]', maxCount: 1 },
-  { name: 'variants[3][image]', maxCount: 1 },
-  { name: 'variants[4][image]', maxCount: 1 }
-]), productCtrl.create);
-router.put('/products/:id', authenticateAdmin, upload.fields([
-  { name: 'image', maxCount: 10 },
-  { name: 'variants[0][image]', maxCount: 1 },
-  { name: 'variants[1][image]', maxCount: 1 },
-  { name: 'variants[2][image]', maxCount: 1 },
-  { name: 'variants[3][image]', maxCount: 1 },
-  { name: 'variants[4][image]', maxCount: 1 }
-]), productCtrl.update);
+router.post('/products', authenticateAdmin, upload.any(), productCtrl.create);
+router.put('/products/:id', authenticateAdmin, upload.any(), productCtrl.update);
 router.delete('/products/:id', authenticateAdmin, productCtrl.remove);
+
+// Admin Attribute Management Routes
+router.get('/attributes', authenticateAdmin, attributeCtrl.list);
+router.post('/attributes', authenticateAdmin, attributeCtrl.create);
+router.post('/attributes/:id/values', authenticateAdmin, attributeCtrl.addValue);
 
 // Admin Category Management Routes
 router.get('/categories', authenticateAdmin, categoryCtrl.list);

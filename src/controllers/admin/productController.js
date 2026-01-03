@@ -31,7 +31,8 @@ async function list(req, res) {
 			where,
 			include: [
 				{ model: db.Category, attributes: ['id', 'name', 'slug'] },
-				{ model: db.ProductVariant, as: 'variants', attributes: ['id', 'name', 'price', 'stock', 'sku', 'image'] },
+				{ model: db.ProductVariant, as: 'variants', attributes: ['id', 'price', 'stock', 'sku', 'thumbnail'] },
+				{ model: db.ProductImage, as: 'gallery', attributes: ['image_path'] },
 				{ model: db.Merchant, as: 'merchant', attributes: ['id', 'name', 'shopName', 'email', 'image'] }
 			],
 			order,
@@ -61,6 +62,7 @@ async function get(req, res) {
 			include: [
 				{ model: db.Category, attributes: ['id', 'name', 'slug'] },
 				{ model: db.ProductVariant, as: 'variants' },
+				{ model: db.ProductImage, as: 'gallery' },
 				{ model: db.Merchant, as: 'merchant', attributes: ['id', 'name', 'shopName', 'email', 'image'] }
 			]
 		});
@@ -84,6 +86,7 @@ async function getBySlug(req, res) {
 			include: [
 				{ model: db.Category, attributes: ['id', 'name', 'slug'] },
 				{ model: db.ProductVariant, as: 'variants' },
+				{ model: db.ProductImage, as: 'gallery' },
 				{ model: db.Merchant, as: 'merchant', attributes: ['id', 'name', 'shopName', 'email', 'image'] }
 			]
 		});
@@ -144,6 +147,17 @@ function extractVariants(body) {
 // Create product (admin)
 async function create(req, res) {
 	try {
+        // Handle FormData JSON string
+        if (req.body.data) {
+            try {
+                const parsedData = JSON.parse(req.body.data);
+                req.body = { ...req.body, ...parsedData };
+                delete req.body.data;
+            } catch (e) {
+                console.error('Failed to parse form data JSON:', e);
+            }
+        }
+
 		// Extract variants from flat keys if necessary
 		if (!Array.isArray(req.body.variants)) {
 			req.body.variants = extractVariants(req.body);
@@ -151,20 +165,29 @@ async function create(req, res) {
 
 		const { title, description, shortDescription, price, discountPrice, stock, sku, categoryId, weight, dimensions, tags, isFeatured, images, variants } = req.body;
 
-		// Handle uploaded files (req.files is an object with upload.fields)
-		const uploadedFilesMap = req.files || {};
-		const uploadedFiles = Object.values(uploadedFilesMap).flat();
+		// Handle uploaded files (req.files is array from upload.any())
+		const uploadedFiles = Array.isArray(req.files) ? req.files : Object.values(req.files || {}).flat();
 
-		const uploadedImagePaths = (uploadedFilesMap['image'] || [])
+		const uploadedImagePaths = uploadedFiles
+			.filter(file => file.fieldname === 'image')
 			.map(file => `/uploads/products/temp/${file.filename}`);
 
 		// Combine uploaded images with any images from body (URLs)
 		let allImages = uploadedImagePaths;
-		if (images && Array.isArray(images)) {
-			allImages = [...uploadedImagePaths, ...images];
-		}
+		
+		// Add gallery images
+		const uploadedGalleryPaths = uploadedFiles
+			.filter(file => file.fieldname === 'gallery')
+			.map(file => `/uploads/products/temp/${file.filename}`);
+			
+		allImages = [...allImages, ...uploadedGalleryPaths];
 
-		const image = allImages.length > 0 ? allImages[0] : null;
+		if (images && Array.isArray(images)) {
+			allImages = [...allImages, ...images];
+		}
+		
+		// Ensure unique images if needed, or just allow duplicates
+		const image = uploadedImagePaths.length > 0 ? uploadedImagePaths[0] : (allImages.length > 0 ? allImages[0] : null);
 
 		// Validate category exists when provided to avoid FK constraint errors
 		if (categoryId !== undefined && categoryId !== null && categoryId !== '') {
@@ -282,42 +305,76 @@ async function create(req, res) {
 		}
 
 		const finalImagePaths = [];
+        const finalGalleryPaths = [];
+
 		uploadedFiles.forEach(file => {
-			if (file.fieldname === 'image') {
+			if (file.fieldname === 'image' || file.fieldname === 'gallery') {
 				const tempPath = file.path;
 				const finalPath = `${finalProductDir}/${file.filename}`;
 
 				try {
 					fs.renameSync(tempPath, finalPath);
-					finalImagePaths.push(`/uploads/products/${product.id}/${file.filename}`);
+                    const publicPath = `/uploads/products/${product.id}/${file.filename}`;
+                    if (file.fieldname === 'image') {
+                        finalImagePaths.push(publicPath);
+                    } else {
+                        finalGalleryPaths.push(publicPath);
+                    }
 				} catch (err) {
 					console.error(`Failed to move image ${file.filename}:`, err);
 					// Keep temp path if move fails
-					finalImagePaths.push(`/uploads/products/temp/${file.filename}`);
+                    const tempPublicPath = `/uploads/products/temp/${file.filename}`;
+                    if (file.fieldname === 'image') {
+                        finalImagePaths.push(tempPublicPath);
+                    } else {
+                        finalGalleryPaths.push(tempPublicPath);
+                    }
 				}
 			}
 		});
 
+        const allFinalImages = [...finalImagePaths, ...finalGalleryPaths];
+
 		// Update product with final image paths
-		if (finalImagePaths.length > 0) {
+		if (allFinalImages.length > 0) {
 			await product.update({
-				image: finalImagePaths[0],
-				images: finalImagePaths
+				image: finalImagePaths.length > 0 ? finalImagePaths[0] : (allFinalImages.length > 0 ? allFinalImages[0] : null),
+				images: allFinalImages
 			});
+
+            // Create ProductImage records for gallery
+            const galleryImages = allFinalImages.map((path, idx) => ({
+                product_id: product.id,
+                image_path: path,
+                is_primary: idx === 0 && finalImagePaths.length > 0 && path === finalImagePaths[0],
+                sort_order: idx
+            }));
+            await db.ProductImage.bulkCreate(galleryImages);
 		}
 
 		// Create variants if provided
 		if (parsedVariants.length > 0) {
 			const variantsToCreate = parsedVariants.map((variant, index) => ({
-				productId: product.id,
-				name: variant.name,
+				product_id: product.id,
 				price: variant.price || 0,
 				stock: variant.stock || 0,
 				sku: variant.sku || null,
-				image: variantImageMap[index] || variant.image || null,
-				attributes: variant.attributes || {}
+				image: variantImageMap[index] || variant.image || null
 			}));
-			await db.ProductVariant.bulkCreate(variantsToCreate);
+			const createdVariants = await db.ProductVariant.bulkCreate(variantsToCreate);
+			
+			// Create attributes for each variant
+			for (let i = 0; i < createdVariants.length; i++) {
+				const variantData = parsedVariants[i];
+				if (variantData.attributes && Array.isArray(variantData.attributes)) {
+					const attrsToCreate = variantData.attributes.map(attr => ({
+						product_variant_id: createdVariants[i].id,
+						attribute_id: attr.attributeId,
+						attribute_value_id: attr.valueId
+					}));
+					await db.ProductVariantAttribute.bulkCreate(attrsToCreate);
+				}
+			}
 		}
 
 		// Fetch product with variants for response
@@ -327,15 +384,15 @@ async function create(req, res) {
 
 		res.status(201).json(productWithVariants);
 	} catch (error) {
-		console.error(error);
+		console.error('Product Creation Error:', error);
+		console.error(error.stack);
 
 		// Cleanup temp images if product creation failed
-		const uploadedFiles = req.files || [];
+		const uploadedFiles = Array.isArray(req.files) ? req.files : Object.values(req.files || {}).flat();
 		uploadedFiles.forEach(file => {
 			try {
 				if (fs.existsSync(file.path)) {
 					fs.unlinkSync(file.path);
-					console.log(`Cleaned up temp image: ${file.path}`);
 				}
 			} catch (cleanupError) {
 				console.error(`Failed to cleanup temp image ${file.path}:`, cleanupError);
@@ -367,6 +424,17 @@ async function create(req, res) {
 // Update product (admin)
 async function update(req, res) {
 	try {
+        // Handle FormData JSON string
+        if (req.body.data) {
+            try {
+                const parsedData = JSON.parse(req.body.data);
+                req.body = { ...req.body, ...parsedData };
+                delete req.body.data;
+            } catch (e) {
+                console.error('Failed to parse form data JSON:', e);
+            }
+        }
+
 		// Extract variants from flat keys if necessary
 		if (req.body.variants && !Array.isArray(req.body.variants)) {
 			req.body.variants = extractVariants(req.body);
@@ -401,19 +469,60 @@ async function update(req, res) {
 			try { req.body.dimensions = JSON.parse(dimensions); } catch (e) { }
 		}
 
-		// Handle uploaded files for update (req.files is an object with upload.fields)
-		const uploadedFilesMap = req.files || {};
-		const allUploadedFiles = Object.values(uploadedFilesMap).flat();
+		// Handle uploaded files for update
+		const allUploadedFiles = Array.isArray(req.files) ? req.files : Object.values(req.files || {}).flat();
 
 		if (allUploadedFiles.length > 0) {
-			const uploadedImagePaths = (uploadedFilesMap['image'] || [])
+			const uploadedImagePaths = allUploadedFiles
+				.filter(file => file.fieldname === 'image')
+				.map(file => `/uploads/products/${product.id}/${file.filename}`);
+			
+			const uploadedGalleryPaths = allUploadedFiles
+				.filter(file => file.fieldname === 'gallery')
 				.map(file => `/uploads/products/${product.id}/${file.filename}`);
 
+			// If new main image uploaded, update it
 			if (uploadedImagePaths.length > 0) {
-				req.body.image = uploadedImagePaths[0]; // Set main image to first uploaded
-				// For update, we'll replace the images array
-				req.body.images = uploadedImagePaths;
+				req.body.image = uploadedImagePaths[0]; 
+			} else {
+				req.body.image = product.image;
 			}
+			
+			// Handle gallery: merge new gallery uploads with existing or replaced images
+			// Logic: If new gallery images are uploaded, append them? Or replace? 
+			// Usually in update, we append or specific operations. 
+			// But here let's assume appending to existing gallery if not provided in body, 
+			// or if body.gallery is provided (as strings), we use that + new uploads.
+			
+			// Actually the frontend sends 'gallery' as strings for existing ones.
+			let finalGallery = [];
+			if (req.body.gallery && Array.isArray(req.body.gallery)) {
+				finalGallery = [...req.body.gallery];
+			} else if (product.images) {
+				// If no gallery sent in body, maybe we keep existing? 
+				// But frontend usually sends current state.
+				// If strictly adding:
+				finalGallery = [...(product.images || [])];
+			}
+			
+			if (uploadedGalleryPaths.length > 0) {
+				finalGallery = [...finalGallery, ...uploadedGalleryPaths];
+			}
+			
+			req.body.images = finalGallery;
+			
+            // Sync ProductImage table
+            await db.ProductImage.destroy({ where: { product_id: product.id } });
+            if (finalGallery.length > 0) {
+                const newGalleryImages = finalGallery.map((path, idx) => ({
+                    product_id: product.id,
+                    image_path: path,
+                    is_primary: idx === 0 && path === req.body.image,
+                    sort_order: idx
+                }));
+                await db.ProductImage.bulkCreate(newGalleryImages);
+            }
+
 		} else {
 			// Preserve existing images if no new images uploaded
 			req.body.image = product.image;
@@ -458,7 +567,7 @@ async function update(req, res) {
 		if (parsedVariants.length > 0 || variants !== undefined) {
 			// Get existing variants
 			const existingVariants = await db.ProductVariant.findAll({
-				where: { productId: product.id }
+				where: { product_id: product.id }
 			});
 
 			const existingVariantIds = existingVariants.map(v => v.id);
@@ -480,15 +589,24 @@ async function update(req, res) {
 				if (variant.id) {
 					// Update existing variant
 					await db.ProductVariant.update({
-						name: variant.name,
 						price: variant.price || 0,
 						stock: variant.stock || 0,
 						sku: variant.sku || null,
-						image: variantImageMap[i] || variant.image || null,
-						attributes: variant.attributes || {}
+						image: variantImageMap[i] || variant.image || null
 					}, {
-						where: { id: variant.id, productId: product.id }
+						where: { id: variant.id, product_id: product.id }
 					});
+
+					// Update attributes: Delete existing and recreate
+					await db.ProductVariantAttribute.destroy({ where: { product_variant_id: variant.id } });
+					if (variant.attributes && Array.isArray(variant.attributes)) {
+						const attrsToCreate = variant.attributes.map(attr => ({
+							product_variant_id: variant.id,
+							attribute_id: attr.attributeId,
+							attribute_value_id: attr.valueId
+						}));
+						await db.ProductVariantAttribute.bulkCreate(attrsToCreate);
+					}
 				} else {
 					// Create new variant
 					// Validate variant SKU doesn't conflict
@@ -502,15 +620,22 @@ async function update(req, res) {
 						}
 					}
 
-					await db.ProductVariant.create({
-						productId: product.id,
-						name: variant.name,
+					const newVariant = await db.ProductVariant.create({
+						product_id: product.id,
 						price: variant.price || 0,
 						stock: variant.stock || 0,
 						sku: variant.sku || null,
-						image: variantImageMap[i] || variant.image || null,
-						attributes: variant.attributes || {}
+						image: variantImageMap[i] || variant.image || null
 					});
+
+					if (variant.attributes && Array.isArray(variant.attributes)) {
+						const attrsToCreate = variant.attributes.map(attr => ({
+							product_variant_id: newVariant.id,
+							attribute_id: attr.attributeId,
+							attribute_value_id: attr.valueId
+						}));
+						await db.ProductVariantAttribute.bulkCreate(attrsToCreate);
+					}
 				}
 			}
 		}

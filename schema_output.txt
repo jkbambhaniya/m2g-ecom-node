@@ -1,0 +1,135 @@
+Connection has been established successfully.
+Schema for product_variants:
+{
+  "id": {
+    "type": "INT(11)",
+    "allowNull": false,
+    "defaultValue": null,
+    "primaryKey": true,
+    "autoIncrement": true,
+    "comment": null
+  },
+  "product_id": {
+    "type": "INT(11)",
+    "allowNull": false,
+    "defaultValue": null,
+    "primaryKey": false,
+    "autoIncrement": false,
+    "comment": null
+  },
+  "sku": {
+    "type": "VARCHAR(100)",
+    "allowNull": true,
+    "defaultValue": null,
+    "primaryKey": false,
+    "autoIncrement": false,
+    "comment": null
+  },
+  "price": {
+    "type": "DECIMAL(12,2)",
+    "allowNull": false,
+    "defaultValue": "0.00",
+    "primaryKey": false,
+    "autoIncrement": false,
+    "comment": null
+  },
+  "sale_price": {
+    "type": "DECIMAL(12,2)",
+    "allowNull": true,
+    "defaultValue": null,
+    "primaryKey": false,
+    "autoIncrement": false,
+    "comment": null
+  },
+  "stock": {
+    "type": "INT(11)",
+    "allowNull": false,
+    "defaultValue": "0",
+    "primaryKey": false,
+    "autoIncrement": false,
+    "comment": null
+  },
+  "thumbnail": {
+    "type": "VARCHAR(255)",
+    "allowNull": true,
+    "defaultValue": null,
+    "primaryKey": false,
+    "autoIncrement": false,
+    "comment": null
+  },
+  "status": {
+    "type": "ENUM('active','inactive')",
+    "allowNull": true,
+    "defaultValue": "active",
+    "primaryKey": false,
+    "autoIncrement": false,
+    "comment": null
+  },
+  "createdAt": {
+    "type": "DATETIME",
+    "allowNull": false,
+    "defaultValue": "current_timestamp()",
+    "primaryKey": false,
+    "autoIncrement": false,
+    "comment": null
+  },
+  "updatedAt": {
+    "type": "DATETIME",
+    "allowNull": false,
+    "defaultValue": "current_timestamp()",
+    "primaryKey": false,
+    "autoIncrement": false,
+    "comment": null
+  }
+}
+Schema for product_variant_attributes:
+{
+  "id": {
+    "type": "INT(11)",
+    "allowNull": false,
+    "defaultValue": null,
+    "primaryKey": true,
+    "autoIncrement": true,
+    "comment": null
+  },
+  "product_variant_id": {
+    "type": "INT(11)",
+    "allowNull": false,
+    "defaultValue": null,
+    "primaryKey": false,
+    "autoIncrement": false,
+    "comment": null
+  },
+  "attribute_id": {
+    "type": "INT(11)",
+    "allowNull": false,
+    "defaultValue": null,
+    "primaryKey": false,
+    "autoIncrement": false,
+    "comment": null
+  },
+  "attribute_value_id": {
+    "type": "INT(11)",
+    "allowNull": false,
+    "defaultValue": null,
+    "primaryKey": false,
+    "autoIncrement": false,
+    "comment": null
+  },
+  "createdAt": {
+    "type": "DATETIME",
+    "allowNull": false,
+    "defaultValue": "current_timestamp()",
+    "primaryKey": false,
+    "autoIncrement": false,
+    "comment": null
+  },
+  "updatedAt": {
+    "type": "DATETIME",
+    "allowNull": false,
+    "defaultValue": "current_timestamp()",
+    "primaryKey": false,
+    "autoIncrement": false,
+    "comment": null
+  }
+}

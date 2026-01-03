@@ -5,7 +5,7 @@ const fs = require('fs');
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
         let dir = 'public/uploads';
-        if (file.fieldname === 'image') {
+        if (file.fieldname === 'image' || file.fieldname === 'gallery') {
             if (req.originalUrl.includes('hero')) dir = 'public/uploads/hero';
             else if (req.originalUrl.includes('products')) {
                 // For product updates, store in product-specific folder

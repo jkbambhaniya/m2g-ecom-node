@@ -194,38 +194,38 @@ async function create(req, res) {
 		
 		if (req.files && req.files.length > 0) {
 			req.files.forEach(file => {
-				const path = `/uploads/${file.filename}`;
+				// Correctly capture the relative path including subdirectories
+				// Multer saves to 'public/uploads/...' so we want '/uploads/...'
+				const path = file.path.replace(/\\/g, '/').replace(/^.*public\//, '/');
 				
-				// Case 1: Product Gallery
-				if (file.fieldname.startsWith('gallery')) {
+				// Case 1: Main Product Image
+				if (file.fieldname === 'image') {
+					req.body.image = path;
+				}
+				// Case 2: Product Gallery
+				else if (file.fieldname.startsWith('gallery')) {
 					if (!req.body.gallery) req.body.gallery = [];
 					req.body.gallery.push({ image_path: path });
 				}
-				// Case 2: Variant Images
-				// Fieldname format: variants[0][image] OR variantImage_0
+				// Case 3: Variant Images/Gallery
 				else {
-					let index = -1;
-					// Check for bracket notation: variants[0][image]
+					// Check for variant thumbnail: variants[0][image]
 					const bracketMatch = file.fieldname.match(/variants\[(\d+)\]\[image\]/);
 					if (bracketMatch) {
-						index = parseInt(bracketMatch[1]);
-					} else {
-						// Check for underscore notation: variantImage_0
-						const underscoreMatch = file.fieldname.match(/variantImage_(\d+)/);
-						if (underscoreMatch) {
-							index = parseInt(underscoreMatch[1]);
-						}
-					}
-
-					if (index !== -1) {
+						const index = parseInt(bracketMatch[1]);
 						if (!req.body.variants) req.body.variants = [];
 						if (!req.body.variants[index]) req.body.variants[index] = {};
-						req.body.variants[index].thumbnail = path; // Map to new 'thumbnail' column
+						req.body.variants[index].thumbnail = path;
+					} 
+					// Check for variant gallery: variants[0][gallery]
+					const galMatch = file.fieldname.match(/variants\[(\d+)\]\[gallery\]/);
+					if (galMatch) {
+						const index = parseInt(galMatch[1]);
+						if (!req.body.variants) req.body.variants = [];
+						if (!req.body.variants[index]) req.body.variants[index] = {};
+						if (!req.body.variants[index].gallery) req.body.variants[index].gallery = [];
+						req.body.variants[index].gallery.push(path);
 					}
-					
-					// Variant gallery support (optional enhancement)
-					// const galMatch = file.fieldname.match(/variants\[(\d+)\]\[gallery\]/);
-					// if (galMatch) ...
 				}
 			});
 		}
@@ -234,6 +234,7 @@ async function create(req, res) {
 		// (Assume req.body.variants is now an array of objects, potentially from JSON parse)
 		let variantsData = req.body.variants || [];
 		if (typeof variantsData === 'string') variantsData = JSON.parse(variantsData);
+		logDebug(`Create: Variants Data to process: ${JSON.stringify(variantsData)}`);
 
 		const { title, description, shortDescription, price, discountPrice, stock, sku, categoryId, weight, dimensions, tags, isFeatured } = req.body;
 
@@ -261,6 +262,7 @@ async function create(req, res) {
 			discountPrice,
 			stock,
 			sku: sku || slug,
+			image: req.body.image, // Main image field
 			categoryId,
 			weight,
 			dimensions,
@@ -318,6 +320,16 @@ async function create(req, res) {
 					}));
 					await db.ProductVariantImage.bulkCreate(vImages, { transaction: t });
 				}
+
+				// 5c. Variant Gallery (Multer uploaded files)
+				if (vData.gallery && Array.isArray(vData.gallery)) {
+					const vGallery = vData.gallery.map(img => ({
+						product_variant_id: variant.id,
+						image_path: img,
+						is_primary: false
+					}));
+					await db.ProductVariantImage.bulkCreate(vGallery, { transaction: t });
+				}
 			}
 		}
 
@@ -371,29 +383,34 @@ async function update(req, res) {
 		// 2. Map files
 		if (req.files && req.files.length > 0) {
 			req.files.forEach(file => {
-				const path = `/uploads/${file.filename}`;
-				if (file.fieldname.startsWith('gallery')) {
-					// New gallery images to add
+				const path = file.path.replace(/\\/g, '/').replace(/^.*public\//, '/');
+				
+				// Main Product Image
+				if (file.fieldname === 'image') {
+					req.body.image = path;
+				}
+				// Product Gallery
+				else if (file.fieldname.startsWith('gallery')) {
 					if (!req.body.gallery) req.body.gallery = [];
 					req.body.gallery.push({ image_path: path });
-				} else {
-					let index = -1;
-					// Check for bracket notation: variants[0][image]
+				} 
+				else {
+					// Variant thumbnail
 					const bracketMatch = file.fieldname.match(/variants\[(\d+)\]\[image\]/);
 					if (bracketMatch) {
-						index = parseInt(bracketMatch[1]);
-					} else {
-						// Check for underscore notation: variantImage_0
-						const underscoreMatch = file.fieldname.match(/variantImage_(\d+)/);
-						if (underscoreMatch) {
-							index = parseInt(underscoreMatch[1]);
-						}
-					}
-
-					if (index !== -1) {
+						const index = parseInt(bracketMatch[1]);
 						if (!req.body.variants) req.body.variants = [];
 						if (!req.body.variants[index]) req.body.variants[index] = {};
 						req.body.variants[index].thumbnail = path;
+					}
+					// Variant gallery
+					const galMatch = file.fieldname.match(/variants\[(\d+)\]\[gallery\]/);
+					if (galMatch) {
+						const index = parseInt(galMatch[1]);
+						if (!req.body.variants) req.body.variants = [];
+						if (!req.body.variants[index]) req.body.variants[index] = {};
+						if (!req.body.variants[index].gallery) req.body.variants[index].gallery = [];
+						req.body.variants[index].gallery.push(path);
 					}
 				}
 			});
@@ -401,6 +418,7 @@ async function update(req, res) {
 
 		let variantsData = req.body.variants;
 		if (typeof variantsData === 'string') variantsData = JSON.parse(variantsData);
+		logDebug(`Variants Data to process: ${JSON.stringify(variantsData)}`);
 
 		const { title, description, shortDescription, price, discountPrice, stock, sku, categoryId, weight, dimensions, tags, isFeatured, isActive } = req.body;
 
@@ -417,6 +435,7 @@ async function update(req, res) {
 		if (weight) updates.weight = weight;
 		if (dimensions) updates.dimensions = dimensions;
 		if (tags) updates.tags = Array.isArray(tags) ? tags : (tags ? [tags] : []);
+		if (req.body.image) updates.image = req.body.image;
 		if (isFeatured !== undefined) updates.isFeatured = isFeatured === 'true' || isFeatured === true;
 		if (isActive !== undefined) updates.isActive = isActive === 'true' || isActive === true;
 
@@ -433,16 +452,30 @@ async function update(req, res) {
 
 		await product.update(updates, { transaction: t });
 
-		// 3. Update Gallery (Add new images)
-		if (req.body.gallery && Array.isArray(req.body.gallery)) {
-			const galleryImages = req.body.gallery.map(img => ({
+		// 3. Update Gallery (Sync)
+		const incomingGallery = req.body.gallery || [];
+		const incomingPaths = incomingGallery.map(img => typeof img === 'string' ? img : img.image_path);
+		
+		// Delete images removed from gallery
+		await db.ProductImage.destroy({
+			where: {
 				product_id: product.id,
-				image_path: typeof img === 'string' ? img : img.image_path,
+				image_path: { [Op.notIn]: incomingPaths }
+			},
+			transaction: t
+		});
+
+		// Add only new images
+		const existingImages = await db.ProductImage.findAll({ where: { product_id: product.id } });
+		const existingPaths = existingImages.map(img => img.image_path);
+		const newPaths = incomingPaths.filter(p => !existingPaths.includes(p));
+
+		if (newPaths.length > 0) {
+			await db.ProductImage.bulkCreate(newPaths.map(p => ({
+				product_id: product.id,
+				image_path: p,
 				is_primary: false
-			}));
-			if (galleryImages.length > 0) {
-				await db.ProductImage.bulkCreate(galleryImages, { transaction: t });
-			}
+			})), { transaction: t });
 		}
 		// Note: Deleting gallery images should probably be a separate API call or handled via explicit `deletedGalleryIds` in payload.
 		// For now, we only ADD images via update.
@@ -494,6 +527,30 @@ async function update(req, res) {
 					if (variantAttrs.length > 0) {
 						await db.ProductVariantAttribute.bulkCreate(variantAttrs, { transaction: t });
 					}
+				}
+
+				// Update Variant Gallery (Sync)
+				const incomingVGallery = vData.gallery || [];
+				const incomingVPaths = incomingVGallery.map(img => typeof img === 'string' ? img : (img.image_path || img));
+				
+				await db.ProductVariantImage.destroy({
+					where: {
+						product_variant_id: variant.id,
+						image_path: { [Op.notIn]: incomingVPaths }
+					},
+					transaction: t
+				});
+
+				const existingVImages = await db.ProductVariantImage.findAll({ where: { product_variant_id: variant.id } });
+				const existingVPaths = existingVImages.map(img => img.image_path);
+				const newVPaths = incomingVPaths.filter(p => !existingVPaths.includes(p));
+
+				if (newVPaths.length > 0) {
+					await db.ProductVariantImage.bulkCreate(newVPaths.map(p => ({
+						product_variant_id: variant.id,
+						image_path: p,
+						is_primary: false
+					})), { transaction: t });
 				}
 			}
 		}
